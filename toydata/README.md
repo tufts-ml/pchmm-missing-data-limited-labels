@@ -39,3 +39,5 @@ Note : For now, the best fit is saved in the "saved_models" folder. Once you  ha
     >> snakemake --cores 1 --snakefile visualize_pchmm_fits.smk
 
 This creates the visualization of the best model
+![PC-HMM toy data best fit visualization](https://github.com/tufts-ml/pchmm-missing-data-limited-labels/blob/main/toydata/figures/pchmm_fits_no_imp_perc_obs=60.png)
+
