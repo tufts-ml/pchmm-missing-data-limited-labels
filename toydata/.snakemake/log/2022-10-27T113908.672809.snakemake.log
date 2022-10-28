@@ -1,0 +1,3 @@
+NameError in line 16 of /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/toydata/Snakefile:
+name 'DATASET_STD_PATH' is not defined
+  File "/cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/toydata/Snakefile", line 16, in <module>

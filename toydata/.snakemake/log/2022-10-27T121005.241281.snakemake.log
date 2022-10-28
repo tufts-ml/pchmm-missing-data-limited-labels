@@ -1,0 +1,3 @@
+TypeError in line 43 of /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/toydata/Snakefile:
+abspath() takes 1 positional argument but 3 were given
+  File "/cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/toydata/Snakefile", line 43, in <module>

@@ -1,0 +1,3 @@
+NameError in line 60 of /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/toydata/Snakefile:
+name 'PROJECT_CONDA_ENV_YAML' is not defined
+  File "/cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/toydata/Snakefile", line 60, in <module>

@@ -1,0 +1,19 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 1 (use --cores to define parallelism)
+Rules claiming more threads will be scaled down.
+Job counts:
+	count	jobs
+	1	build_csv_dataset_for_pchmm
+	1
+
+[Thu Oct 27 11:39:39 2022]
+rule build_csv_dataset_for_pchmm:
+    input: make_pchmm_dataset.py
+    output: data/features_2d_per_tstep_no_imp_observed=60_perc.csv, data/outcomes_per_seq.csv
+    jobid: 0
+
+[Thu Oct 27 11:39:59 2022]
+Finished job 0.
+1 of 1 steps (100%) done
+Complete log: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/toydata/.snakemake/log/2022-10-27T113939.360386.snakemake.log

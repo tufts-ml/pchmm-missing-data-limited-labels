@@ -1,0 +1,4 @@
+Building DAG of jobs...
+MissingInputException in line 42 of /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/toydata/Snakefile:
+Missing input files for rule split_2d_features_into_train_and_test:
+data/Spec_Features2DPerTimestep.json

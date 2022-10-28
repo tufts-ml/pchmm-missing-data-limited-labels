@@ -1,0 +1,3 @@
+NameError in line 26 of /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/toydata/train_pchmm.smk:
+name 'PROJECT_REPO_DIR' is not defined
+  File "/cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/toydata/train_pchmm.smk", line 26, in <module>

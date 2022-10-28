@@ -1,0 +1,3 @@
+NameError in line 16 of /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/toydata/Snakefile:
+name 'PROJECT_REPO_DIR' is not defined
+  File "/cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/toydata/Snakefile", line 16, in <module>

@@ -1,0 +1,30 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 1 (use --cores to define parallelism)
+Rules claiming more threads will be scaled down.
+Conda environments: ignored
+Job counts:
+	count	jobs
+	48	train_and_evaluate_classifier
+	1	train_and_evaluate_classifier_many_hyperparams
+	49
+
+[Thu Oct 27 13:45:40 2022]
+rule train_and_evaluate_classifier:
+    input: train_LSTM.py, data/train_test_data/x_train_ffill_imp_observed=80_perc.csv, data/train_test_data/x_valid_ffill_imp_observed=80_perc.csv, data/train_test_data/x_test_ffill_imp_observed=80_perc.csv, data/train_test_data/y_train_ffill_imp_observed=80_perc.csv, data/train_test_data/y_valid_ffill_imp_observed=80_perc.csv, data/train_test_data/y_test_ffill_imp_observed=80_perc.csv, data/train_test_data/x_dict_ffill_imp_observed=80_perc.json, data/train_test_data/y_dict_ffill_imp_observed=80_perc.json
+    output: training_logs/GRUD/final_perf_LSTM-missing_handling=ffill_imp-perc_obs=80-lr=0.001-dropout=0.1-l2_penalty=0-seed=98.csv
+    jobid: 28
+    wildcards: missing_handling=ffill_imp, perc_obs=80, lr=0.001, dropout=0.1, l2_penalty=0, seed=98
+
+[Thu Oct 27 13:45:44 2022]
+Error in rule train_and_evaluate_classifier:
+    jobid: 28
+    output: training_logs/GRUD/final_perf_LSTM-missing_handling=ffill_imp-perc_obs=80-lr=0.001-dropout=0.1-l2_penalty=0-seed=98.csv
+    shell:
+        
+        mkdir -p training_logs/GRUD &&         python -u train_LSTM.py             --outcome_col_name did_overheat_binary_label             --output_dir training_logs/GRUD             --train_csv_files data/train_test_data/x_train_ffill_imp_observed=80_perc.csv,data/train_test_data/y_train_ffill_imp_observed=80_perc.csv             --valid_csv_files data/train_test_data/x_valid_ffill_imp_observed=80_perc.csv,data/train_test_data/y_valid_ffill_imp_observed=80_perc.csv             --test_csv_files data/train_test_data/x_test_ffill_imp_observed=80_perc.csv,data/train_test_data/y_test_ffill_imp_observed=80_perc.csv             --data_dict_files data/train_test_data/x_dict_ffill_imp_observed=80_perc.json,data/train_test_data/y_dict_ffill_imp_observed=80_perc.json             --validation_size 0.15             --lr 0.001             --seed 98             --output_filename_prefix LSTM-missing_handling=ffill_imp-perc_obs=80-lr=0.001-dropout=0.1-l2_penalty=0-seed=98             --dropout 0.1             --l2_penalty 0         
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look above for error message
+Complete log: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/toydata/.snakemake/log/2022-10-27T134540.764492.snakemake.log

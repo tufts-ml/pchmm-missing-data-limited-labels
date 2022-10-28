@@ -1,0 +1,19 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 1 (use --cores to define parallelism)
+Rules claiming more threads will be scaled down.
+Conda environments: ignored
+Job counts:
+	count	jobs
+	1	visualize_pchmm_fits
+	1
+
+[Fri Oct 28 12:03:23 2022]
+rule visualize_pchmm_fits:
+    input: visualize_pchmm_fits.py
+    jobid: 0
+
+[Fri Oct 28 12:03:29 2022]
+Finished job 0.
+1 of 1 steps (100%) done
+Complete log: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/toydata/.snakemake/log/2022-10-28T120323.101364.snakemake.log

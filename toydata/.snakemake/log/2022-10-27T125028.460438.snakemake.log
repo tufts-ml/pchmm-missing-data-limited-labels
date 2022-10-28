@@ -1,0 +1,20 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 1 (use --cores to define parallelism)
+Rules claiming more threads will be scaled down.
+Conda environments: ignored
+Job counts:
+	count	jobs
+	400	train_and_evaluate_classifier
+	1	train_and_evaluate_classifier_many_hyperparams
+	401
+
+[Thu Oct 27 12:50:28 2022]
+rule train_and_evaluate_classifier:
+    input: train_pchmm.py, data/train_test_data/x_train_no_imp_observed=100_perc.csv, data/train_test_data/x_valid_no_imp_observed=100_perc.csv, data/train_test_data/x_test_no_imp_observed=100_perc.csv, data/train_test_data/y_train_no_imp_observed=100_perc.csv, data/train_test_data/y_valid_no_imp_observed=100_perc.csv, data/train_test_data/y_test_no_imp_observed=100_perc.csv, data/train_test_data/x_dict_no_imp_observed=100_perc.json, data/train_test_data/y_dict_no_imp_observed=100_perc.json
+    output: training_logs/pchmm-missing_handling=no_imp-perc_obs=100-lr=0.01-seed=890-batch_size=-1-lamb=1.csv
+    jobid: 329
+    wildcards: missing_handling=no_imp, perc_obs=100, lr=0.01, seed=890, batch_size=-1, lamb=1
+
+Terminating processes on user request, this might take some time.
+Cancelling snakemake on user request.

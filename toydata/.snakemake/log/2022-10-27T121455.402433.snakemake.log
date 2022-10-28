@@ -1,0 +1,185 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 1 (use --cores to define parallelism)
+Rules claiming more threads will be scaled down.
+Conda environments: ignored
+Job counts:
+	count	jobs
+	1	split_2d_features_into_many_train_and_test
+	15	split_2d_features_into_train_and_test
+	16
+
+[Thu Oct 27 12:14:55 2022]
+rule split_2d_features_into_train_and_test:
+    input: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/utils/split_dataset.py, data/features_2d_per_tstep_mean_imp_observed=20_perc.csv, data/Spec_Features2DPerTimestep.json, data/outcomes_per_seq.csv, data/Spec_OutcomesPerSequence.json
+    output: data/train_test_data/x_train_mean_imp_observed=20_perc.csv, data/train_test_data/x_test_mean_imp_observed=20_perc.csv, data/train_test_data/x_valid_mean_imp_observed=20_perc.csv, data/train_test_data/y_train_mean_imp_observed=20_perc.csv, data/train_test_data/y_valid_mean_imp_observed=20_perc.csv, data/train_test_data/y_test_mean_imp_observed=20_perc.csv, data/train_test_data/x_dict_mean_imp_observed=20_perc.json, data/train_test_data/y_dict_mean_imp_observed=20_perc.json
+    jobid: 7
+    wildcards: missing_handling=mean_imp, perc_obs=20
+
+[Thu Oct 27 12:14:58 2022]
+Finished job 7.
+1 of 16 steps (6%) done
+
+[Thu Oct 27 12:14:58 2022]
+rule split_2d_features_into_train_and_test:
+    input: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/utils/split_dataset.py, data/features_2d_per_tstep_mean_imp_observed=60_perc.csv, data/Spec_Features2DPerTimestep.json, data/outcomes_per_seq.csv, data/Spec_OutcomesPerSequence.json
+    output: data/train_test_data/x_train_mean_imp_observed=60_perc.csv, data/train_test_data/x_test_mean_imp_observed=60_perc.csv, data/train_test_data/x_valid_mean_imp_observed=60_perc.csv, data/train_test_data/y_train_mean_imp_observed=60_perc.csv, data/train_test_data/y_valid_mean_imp_observed=60_perc.csv, data/train_test_data/y_test_mean_imp_observed=60_perc.csv, data/train_test_data/x_dict_mean_imp_observed=60_perc.json, data/train_test_data/y_dict_mean_imp_observed=60_perc.json
+    jobid: 9
+    wildcards: missing_handling=mean_imp, perc_obs=60
+
+[Thu Oct 27 12:15:00 2022]
+Finished job 9.
+2 of 16 steps (12%) done
+
+[Thu Oct 27 12:15:00 2022]
+rule split_2d_features_into_train_and_test:
+    input: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/utils/split_dataset.py, data/features_2d_per_tstep_ffill_imp_observed=100_perc.csv, data/Spec_Features2DPerTimestep.json, data/outcomes_per_seq.csv, data/Spec_OutcomesPerSequence.json
+    output: data/train_test_data/x_train_ffill_imp_observed=100_perc.csv, data/train_test_data/x_test_ffill_imp_observed=100_perc.csv, data/train_test_data/x_valid_ffill_imp_observed=100_perc.csv, data/train_test_data/y_train_ffill_imp_observed=100_perc.csv, data/train_test_data/y_valid_ffill_imp_observed=100_perc.csv, data/train_test_data/y_test_ffill_imp_observed=100_perc.csv, data/train_test_data/x_dict_ffill_imp_observed=100_perc.json, data/train_test_data/y_dict_ffill_imp_observed=100_perc.json
+    jobid: 16
+    wildcards: missing_handling=ffill_imp, perc_obs=100
+
+[Thu Oct 27 12:15:03 2022]
+Finished job 16.
+3 of 16 steps (19%) done
+
+[Thu Oct 27 12:15:03 2022]
+rule split_2d_features_into_train_and_test:
+    input: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/utils/split_dataset.py, data/features_2d_per_tstep_mean_imp_observed=100_perc.csv, data/Spec_Features2DPerTimestep.json, data/outcomes_per_seq.csv, data/Spec_OutcomesPerSequence.json
+    output: data/train_test_data/x_train_mean_imp_observed=100_perc.csv, data/train_test_data/x_test_mean_imp_observed=100_perc.csv, data/train_test_data/x_valid_mean_imp_observed=100_perc.csv, data/train_test_data/y_train_mean_imp_observed=100_perc.csv, data/train_test_data/y_valid_mean_imp_observed=100_perc.csv, data/train_test_data/y_test_mean_imp_observed=100_perc.csv, data/train_test_data/x_dict_mean_imp_observed=100_perc.json, data/train_test_data/y_dict_mean_imp_observed=100_perc.json
+    jobid: 11
+    wildcards: missing_handling=mean_imp, perc_obs=100
+
+[Thu Oct 27 12:15:05 2022]
+Finished job 11.
+4 of 16 steps (25%) done
+
+[Thu Oct 27 12:15:05 2022]
+rule split_2d_features_into_train_and_test:
+    input: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/utils/split_dataset.py, data/features_2d_per_tstep_no_imp_observed=100_perc.csv, data/Spec_Features2DPerTimestep.json, data/outcomes_per_seq.csv, data/Spec_OutcomesPerSequence.json
+    output: data/train_test_data/x_train_no_imp_observed=100_perc.csv, data/train_test_data/x_test_no_imp_observed=100_perc.csv, data/train_test_data/x_valid_no_imp_observed=100_perc.csv, data/train_test_data/y_train_no_imp_observed=100_perc.csv, data/train_test_data/y_valid_no_imp_observed=100_perc.csv, data/train_test_data/y_test_no_imp_observed=100_perc.csv, data/train_test_data/x_dict_no_imp_observed=100_perc.json, data/train_test_data/y_dict_no_imp_observed=100_perc.json
+    jobid: 6
+    wildcards: missing_handling=no_imp, perc_obs=100
+
+[Thu Oct 27 12:15:08 2022]
+Finished job 6.
+5 of 16 steps (31%) done
+
+[Thu Oct 27 12:15:08 2022]
+rule split_2d_features_into_train_and_test:
+    input: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/utils/split_dataset.py, data/features_2d_per_tstep_ffill_imp_observed=80_perc.csv, data/Spec_Features2DPerTimestep.json, data/outcomes_per_seq.csv, data/Spec_OutcomesPerSequence.json
+    output: data/train_test_data/x_train_ffill_imp_observed=80_perc.csv, data/train_test_data/x_test_ffill_imp_observed=80_perc.csv, data/train_test_data/x_valid_ffill_imp_observed=80_perc.csv, data/train_test_data/y_train_ffill_imp_observed=80_perc.csv, data/train_test_data/y_valid_ffill_imp_observed=80_perc.csv, data/train_test_data/y_test_ffill_imp_observed=80_perc.csv, data/train_test_data/x_dict_ffill_imp_observed=80_perc.json, data/train_test_data/y_dict_ffill_imp_observed=80_perc.json
+    jobid: 15
+    wildcards: missing_handling=ffill_imp, perc_obs=80
+
+[Thu Oct 27 12:15:10 2022]
+Finished job 15.
+6 of 16 steps (38%) done
+
+[Thu Oct 27 12:15:10 2022]
+rule split_2d_features_into_train_and_test:
+    input: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/utils/split_dataset.py, data/features_2d_per_tstep_ffill_imp_observed=40_perc.csv, data/Spec_Features2DPerTimestep.json, data/outcomes_per_seq.csv, data/Spec_OutcomesPerSequence.json
+    output: data/train_test_data/x_train_ffill_imp_observed=40_perc.csv, data/train_test_data/x_test_ffill_imp_observed=40_perc.csv, data/train_test_data/x_valid_ffill_imp_observed=40_perc.csv, data/train_test_data/y_train_ffill_imp_observed=40_perc.csv, data/train_test_data/y_valid_ffill_imp_observed=40_perc.csv, data/train_test_data/y_test_ffill_imp_observed=40_perc.csv, data/train_test_data/x_dict_ffill_imp_observed=40_perc.json, data/train_test_data/y_dict_ffill_imp_observed=40_perc.json
+    jobid: 13
+    wildcards: missing_handling=ffill_imp, perc_obs=40
+
+[Thu Oct 27 12:15:13 2022]
+Finished job 13.
+7 of 16 steps (44%) done
+
+[Thu Oct 27 12:15:13 2022]
+rule split_2d_features_into_train_and_test:
+    input: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/utils/split_dataset.py, data/features_2d_per_tstep_ffill_imp_observed=20_perc.csv, data/Spec_Features2DPerTimestep.json, data/outcomes_per_seq.csv, data/Spec_OutcomesPerSequence.json
+    output: data/train_test_data/x_train_ffill_imp_observed=20_perc.csv, data/train_test_data/x_test_ffill_imp_observed=20_perc.csv, data/train_test_data/x_valid_ffill_imp_observed=20_perc.csv, data/train_test_data/y_train_ffill_imp_observed=20_perc.csv, data/train_test_data/y_valid_ffill_imp_observed=20_perc.csv, data/train_test_data/y_test_ffill_imp_observed=20_perc.csv, data/train_test_data/x_dict_ffill_imp_observed=20_perc.json, data/train_test_data/y_dict_ffill_imp_observed=20_perc.json
+    jobid: 12
+    wildcards: missing_handling=ffill_imp, perc_obs=20
+
+[Thu Oct 27 12:15:15 2022]
+Finished job 12.
+8 of 16 steps (50%) done
+
+[Thu Oct 27 12:15:15 2022]
+rule split_2d_features_into_train_and_test:
+    input: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/utils/split_dataset.py, data/features_2d_per_tstep_ffill_imp_observed=60_perc.csv, data/Spec_Features2DPerTimestep.json, data/outcomes_per_seq.csv, data/Spec_OutcomesPerSequence.json
+    output: data/train_test_data/x_train_ffill_imp_observed=60_perc.csv, data/train_test_data/x_test_ffill_imp_observed=60_perc.csv, data/train_test_data/x_valid_ffill_imp_observed=60_perc.csv, data/train_test_data/y_train_ffill_imp_observed=60_perc.csv, data/train_test_data/y_valid_ffill_imp_observed=60_perc.csv, data/train_test_data/y_test_ffill_imp_observed=60_perc.csv, data/train_test_data/x_dict_ffill_imp_observed=60_perc.json, data/train_test_data/y_dict_ffill_imp_observed=60_perc.json
+    jobid: 14
+    wildcards: missing_handling=ffill_imp, perc_obs=60
+
+[Thu Oct 27 12:15:18 2022]
+Finished job 14.
+9 of 16 steps (56%) done
+
+[Thu Oct 27 12:15:18 2022]
+rule split_2d_features_into_train_and_test:
+    input: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/utils/split_dataset.py, data/features_2d_per_tstep_mean_imp_observed=80_perc.csv, data/Spec_Features2DPerTimestep.json, data/outcomes_per_seq.csv, data/Spec_OutcomesPerSequence.json
+    output: data/train_test_data/x_train_mean_imp_observed=80_perc.csv, data/train_test_data/x_test_mean_imp_observed=80_perc.csv, data/train_test_data/x_valid_mean_imp_observed=80_perc.csv, data/train_test_data/y_train_mean_imp_observed=80_perc.csv, data/train_test_data/y_valid_mean_imp_observed=80_perc.csv, data/train_test_data/y_test_mean_imp_observed=80_perc.csv, data/train_test_data/x_dict_mean_imp_observed=80_perc.json, data/train_test_data/y_dict_mean_imp_observed=80_perc.json
+    jobid: 10
+    wildcards: missing_handling=mean_imp, perc_obs=80
+
+[Thu Oct 27 12:15:20 2022]
+Finished job 10.
+10 of 16 steps (62%) done
+
+[Thu Oct 27 12:15:20 2022]
+rule split_2d_features_into_train_and_test:
+    input: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/utils/split_dataset.py, data/features_2d_per_tstep_mean_imp_observed=40_perc.csv, data/Spec_Features2DPerTimestep.json, data/outcomes_per_seq.csv, data/Spec_OutcomesPerSequence.json
+    output: data/train_test_data/x_train_mean_imp_observed=40_perc.csv, data/train_test_data/x_test_mean_imp_observed=40_perc.csv, data/train_test_data/x_valid_mean_imp_observed=40_perc.csv, data/train_test_data/y_train_mean_imp_observed=40_perc.csv, data/train_test_data/y_valid_mean_imp_observed=40_perc.csv, data/train_test_data/y_test_mean_imp_observed=40_perc.csv, data/train_test_data/x_dict_mean_imp_observed=40_perc.json, data/train_test_data/y_dict_mean_imp_observed=40_perc.json
+    jobid: 8
+    wildcards: missing_handling=mean_imp, perc_obs=40
+
+[Thu Oct 27 12:15:23 2022]
+Finished job 8.
+11 of 16 steps (69%) done
+
+[Thu Oct 27 12:15:23 2022]
+rule split_2d_features_into_train_and_test:
+    input: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/utils/split_dataset.py, data/features_2d_per_tstep_no_imp_observed=80_perc.csv, data/Spec_Features2DPerTimestep.json, data/outcomes_per_seq.csv, data/Spec_OutcomesPerSequence.json
+    output: data/train_test_data/x_train_no_imp_observed=80_perc.csv, data/train_test_data/x_test_no_imp_observed=80_perc.csv, data/train_test_data/x_valid_no_imp_observed=80_perc.csv, data/train_test_data/y_train_no_imp_observed=80_perc.csv, data/train_test_data/y_valid_no_imp_observed=80_perc.csv, data/train_test_data/y_test_no_imp_observed=80_perc.csv, data/train_test_data/x_dict_no_imp_observed=80_perc.json, data/train_test_data/y_dict_no_imp_observed=80_perc.json
+    jobid: 5
+    wildcards: missing_handling=no_imp, perc_obs=80
+
+[Thu Oct 27 12:15:25 2022]
+Finished job 5.
+12 of 16 steps (75%) done
+
+[Thu Oct 27 12:15:25 2022]
+rule split_2d_features_into_train_and_test:
+    input: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/utils/split_dataset.py, data/features_2d_per_tstep_no_imp_observed=60_perc.csv, data/Spec_Features2DPerTimestep.json, data/outcomes_per_seq.csv, data/Spec_OutcomesPerSequence.json
+    output: data/train_test_data/x_train_no_imp_observed=60_perc.csv, data/train_test_data/x_test_no_imp_observed=60_perc.csv, data/train_test_data/x_valid_no_imp_observed=60_perc.csv, data/train_test_data/y_train_no_imp_observed=60_perc.csv, data/train_test_data/y_valid_no_imp_observed=60_perc.csv, data/train_test_data/y_test_no_imp_observed=60_perc.csv, data/train_test_data/x_dict_no_imp_observed=60_perc.json, data/train_test_data/y_dict_no_imp_observed=60_perc.json
+    jobid: 4
+    wildcards: missing_handling=no_imp, perc_obs=60
+
+[Thu Oct 27 12:15:27 2022]
+Finished job 4.
+13 of 16 steps (81%) done
+
+[Thu Oct 27 12:15:27 2022]
+rule split_2d_features_into_train_and_test:
+    input: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/utils/split_dataset.py, data/features_2d_per_tstep_no_imp_observed=40_perc.csv, data/Spec_Features2DPerTimestep.json, data/outcomes_per_seq.csv, data/Spec_OutcomesPerSequence.json
+    output: data/train_test_data/x_train_no_imp_observed=40_perc.csv, data/train_test_data/x_test_no_imp_observed=40_perc.csv, data/train_test_data/x_valid_no_imp_observed=40_perc.csv, data/train_test_data/y_train_no_imp_observed=40_perc.csv, data/train_test_data/y_valid_no_imp_observed=40_perc.csv, data/train_test_data/y_test_no_imp_observed=40_perc.csv, data/train_test_data/x_dict_no_imp_observed=40_perc.json, data/train_test_data/y_dict_no_imp_observed=40_perc.json
+    jobid: 3
+    wildcards: missing_handling=no_imp, perc_obs=40
+
+[Thu Oct 27 12:15:30 2022]
+Finished job 3.
+14 of 16 steps (88%) done
+
+[Thu Oct 27 12:15:30 2022]
+rule split_2d_features_into_train_and_test:
+    input: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/utils/split_dataset.py, data/features_2d_per_tstep_no_imp_observed=20_perc.csv, data/Spec_Features2DPerTimestep.json, data/outcomes_per_seq.csv, data/Spec_OutcomesPerSequence.json
+    output: data/train_test_data/x_train_no_imp_observed=20_perc.csv, data/train_test_data/x_test_no_imp_observed=20_perc.csv, data/train_test_data/x_valid_no_imp_observed=20_perc.csv, data/train_test_data/y_train_no_imp_observed=20_perc.csv, data/train_test_data/y_valid_no_imp_observed=20_perc.csv, data/train_test_data/y_test_no_imp_observed=20_perc.csv, data/train_test_data/x_dict_no_imp_observed=20_perc.json, data/train_test_data/y_dict_no_imp_observed=20_perc.json
+    jobid: 1
+    wildcards: missing_handling=no_imp, perc_obs=20
+
+[Thu Oct 27 12:15:32 2022]
+Finished job 1.
+15 of 16 steps (94%) done
+
+[Thu Oct 27 12:15:32 2022]
+localrule split_2d_features_into_many_train_and_test:
+    input: data/train_test_data/x_train_no_imp_observed=20_perc.csv, data/train_test_data/x_train_no_imp_observed=40_perc.csv, data/train_test_data/x_train_no_imp_observed=60_perc.csv, data/train_test_data/x_train_no_imp_observed=80_perc.csv, data/train_test_data/x_train_no_imp_observed=100_perc.csv, data/train_test_data/x_train_mean_imp_observed=20_perc.csv, data/train_test_data/x_train_mean_imp_observed=40_perc.csv, data/train_test_data/x_train_mean_imp_observed=60_perc.csv, data/train_test_data/x_train_mean_imp_observed=80_perc.csv, data/train_test_data/x_train_mean_imp_observed=100_perc.csv, data/train_test_data/x_train_ffill_imp_observed=20_perc.csv, data/train_test_data/x_train_ffill_imp_observed=40_perc.csv, data/train_test_data/x_train_ffill_imp_observed=60_perc.csv, data/train_test_data/x_train_ffill_imp_observed=80_perc.csv, data/train_test_data/x_train_ffill_imp_observed=100_perc.csv
+    jobid: 0
+
+[Thu Oct 27 12:15:32 2022]
+Finished job 0.
+16 of 16 steps (100%) done
+Complete log: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/toydata/.snakemake/log/2022-10-27T121455.402433.snakemake.log

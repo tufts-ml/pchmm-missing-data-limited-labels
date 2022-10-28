@@ -1,0 +1,26 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 1 (use --cores to define parallelism)
+Rules claiming more threads will be scaled down.
+Conda environments: ignored
+Job counts:
+	count	jobs
+	1	visualize_pchmm_fits
+	1
+
+[Fri Oct 28 11:51:01 2022]
+rule visualize_pchmm_fits:
+    input: visualize_pchmm_fits.py
+    jobid: 0
+
+[Fri Oct 28 11:51:03 2022]
+Error in rule visualize_pchmm_fits:
+    jobid: 0
+    shell:
+        
+        python -u visualize_pchmm_fits.py             --data_dir data             --fits_dir saved_models         
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look above for error message
+Complete log: /cluster/tufts/hugheslab/prath01/projects/pchmm_neurips/toydata/.snakemake/log/2022-10-28T115101.627334.snakemake.log

@@ -1,0 +1,64 @@
+{
+    "name": "Features2DPerTimestep",
+    "path": "features_2d_per_tstep.csv",
+    "format": "csv",
+    "mediatype": "text/csv",
+    "profile": "tabular-data-resource",
+    "$schema": "https://frictionlessdata.io/schemas/table-schema.json",
+    "schema": {
+        "fields": [
+            {
+                "name": "sequence_id",
+                "type": "integer",
+                "role": "key",
+                "description": "Identifier for short sequence",
+                "units": "NONE",
+                "constraints": {
+                    "required": "TRUE",
+                    "minimum": "0",
+                    "maximum": "INF"
+                }
+            },
+            {
+                "name": "timestep",
+                "type": "integer",
+                "role": "timestep",
+                "description": "Identifier for specific timestep",
+                "units": "NONE",
+                "constraints": {
+                    "required": "TRUE",
+                    "minimum": "0",
+                    "maximum": "INF"
+                }
+            },
+            {
+                "name": "temperature_1",
+                "type": "numeric",
+                "role": "measurement",
+                "description": "Value of fictional temperature reading for an item in the freezer",
+                "units": "degree Celsius",
+                "constraints": {
+                    "required": "TRUE",
+                    "minimum": "-20",
+                    "maximum": "20"
+                }
+            },
+            {
+                "name": "temperature_2",
+                "type": "numeric",
+                "role": "measurement",
+                "description": "Value of fictional temperature reading for an item in the freezer",
+                "units": "degree Celsius",
+                "constraints": {
+                    "required": "TRUE",
+                    "minimum": "-20",
+                    "maximum": "20"
+                }
+            }
+        ],
+        "missingValues": [
+            "",
+            "nan"
+        ]
+    }
+}
