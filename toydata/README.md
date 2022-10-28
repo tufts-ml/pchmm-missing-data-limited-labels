@@ -41,3 +41,8 @@ Note : For now, the best fit is saved in the "saved_models" folder. Once you  ha
 This creates the visualization of the best model
 ![PC-HMM toy data best fit visualization](https://github.com/tufts-ml/pchmm-missing-data-limited-labels/blob/main/toydata/figures/pchmm_fits_no_imp_perc_obs=60.png)
 
+
+### Compare PC-HMM handling missing observations performance with baselines (LSTM, GRU-D and PC-HMM with forward fill and mean imputation)
+The script "compare_performance_with_baselines.smk" uses all the trained files in the "training_logs" folder to generate the following plot comparing baselines with the PC-HMM handling missing observations. 
+Note : Again, we have saved the performance files in the "saved_models" folder. Please change the `--fits_dir` argument once you've trained the models.
+![PC-HMM comparing baselines](https://github.com/tufts-ml/pchmm-missing-data-limited-labels/blob/main/toydata/figures/toy_data_performance_pchmm_vs_grud_missing_data.png)
