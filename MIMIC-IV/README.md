@@ -138,6 +138,6 @@ Run the evaluation scripts to choose the model with the best AUPRC on validation
     >> snakemake --cores 1 --snakefile evaluate_MixMatch_performance.smk evaluate_performance
 
  The evaluation script generates .csv files in the "results/model" folder with the performance which can be plotted as shown : 
-![PCHMM_vs_baselines](https://github.com/tufts-ml/pchmm-missing-data-limited-labels/blob/main/MIMIC-IV/figures/perf_average_precision_semi_supervised_first_48_hours.pdf)
+![PCHMM_vs_baselines](https://github.com/tufts-ml/pchmm-missing-data-limited-labels/blob/main/MIMIC-IV/figures/perf_average_precision_semi_supervised_first_48_hours.png)
  
 
