@@ -1,0 +1,196 @@
+{
+    "name": "FeaturesPerTimestepIrregularlySampled",
+    "path": "features_per_tstep_matching_madrid.csv.gz",
+    "format": "csv",
+    "mediatype": "text/csv",
+    "profile": "tabular-data-resource",
+    "$schema": "https://frictionlessdata.io/schemas/table-schema.json",
+    "schema": {
+        "fields": [
+            {
+                "name": "subject_id",
+                "type": "integer",
+                "role": "id",
+                "description": "nan",
+                "units": "None",
+                "constraints": {
+                    "required": "TRUE",
+                    "minimum": "-INF",
+                    "maximum": "-INF"
+                }
+            },
+            {
+                "name": "hadm_id",
+                "type": "integer",
+                "role": "id",
+                "description": "nan",
+                "units": "None",
+                "constraints": {
+                    "required": "TRUE",
+                    "minimum": "-INF",
+                    "maximum": "-INF"
+                }
+            },
+            {
+                "name": "stay_id",
+                "type": "integer",
+                "role": "id",
+                "description": "nan",
+                "units": "None",
+                "constraints": {
+                    "required": "TRUE",
+                    "minimum": "-INF",
+                    "maximum": "-INF"
+                }
+            },
+            {
+                "name": "timestamp",
+                "type": "datetime",
+                "role": "timestamp",
+                "description": "Timestamp of measurement",
+                "units": "YYYY-MM-DDThh:mm:ssZ",
+                "constraints": {
+                    "required": "TRUE",
+                    "minimum": "1900",
+                    "maximum": "2050"
+                }
+            },
+            {
+                "name": "hours_from_admission",
+                "type": "numeric",
+                "role": "timestamp_relative",
+                "description": "Relative hours elapsed since hospital admission",
+                "units": "hours",
+                "constraints": {
+                    "required": "TRUE",
+                    "minimum": "0",
+                    "maximum": "8760"
+                }
+            },
+            {
+                "name": "heart_rate",
+                "type": "numeric",
+                "role": "measurement",
+                "description": "Heart Rate",
+                "units": "beats per minute (bpm)",
+                "constraints": {
+                    "required": "FALSE",
+                    "minimum": "20",
+                    "maximum": "220"
+                }
+            },
+            {
+                "name": "body_temperature",
+                "type": "numeric",
+                "role": "measurement",
+                "description": "Body Temperature",
+                "units": "Celsius",
+                "constraints": {
+                    "required": "FALSE",
+                    "minimum": "32",
+                    "maximum": "42"
+                }
+            },
+            {
+                "name": "systolic_blood_pressure",
+                "type": "numeric",
+                "role": "measurement",
+                "description": "Systolic Blood Pressure",
+                "units": "mm Hg",
+                "constraints": {
+                    "required": "FALSE",
+                    "minimum": "40",
+                    "maximum": "300"
+                }
+            },
+            {
+                "name": "diastolic_blood_pressure",
+                "type": "numeric",
+                "role": "measurement",
+                "description": "Diastolic Blood Pressure",
+                "units": "mm Hg",
+                "constraints": {
+                    "required": "FALSE",
+                    "minimum": "30",
+                    "maximum": "180"
+                }
+            },
+            {
+                "name": "blood_glucose_concentration",
+                "type": "numeric",
+                "role": "measurement",
+                "description": "Glucose Concentration in Blood",
+                "units": "/vol",
+                "constraints": {
+                    "required": "FALSE",
+                    "minimum": "10",
+                    "maximum": "800"
+                }
+            },
+            {
+                "name": "bmi",
+                "type": "numeric",
+                "role": "measurement",
+                "description": "Body Mass Index",
+                "units": "kg/m^2",
+                "constraints": {
+                    "required": "FALSE",
+                    "minimum": "15",
+                    "maximum": "60"
+                }
+            },
+            {
+                "name": "weight",
+                "type": "numeric",
+                "role": "measurement",
+                "description": "Weight of patient in kilograms",
+                "units": "Kg",
+                "constraints": {
+                    "required": "FALSE",
+                    "minimum": "30",
+                    "maximum": "300"
+                }
+            },
+            {
+                "name": "height",
+                "type": "numeric",
+                "role": "measurement",
+                "description": "Height of patient in centimeters (cm)",
+                "units": "cm",
+                "constraints": {
+                    "required": "FALSE",
+                    "minimum": "135",
+                    "maximum": "210"
+                }
+            },
+            {
+                "name": "o2_sat",
+                "type": "numeric",
+                "role": "measurement",
+                "description": "Oxygen Saturation",
+                "units": "%",
+                "constraints": {
+                    "required": "FALSE",
+                    "minimum": "10",
+                    "maximum": "100"
+                }
+            },
+            {
+                "name": "respiratory_rate",
+                "type": "numeric",
+                "role": "measurement",
+                "description": "Rate of Respiration",
+                "units": "/min",
+                "constraints": {
+                    "required": "FALSE",
+                    "minimum": "10",
+                    "maximum": "60"
+                }
+            }
+        ],
+        "missingValues": [
+            "",
+            "nan"
+        ]
+    }
+}
