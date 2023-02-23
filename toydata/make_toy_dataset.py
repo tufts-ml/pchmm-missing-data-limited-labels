@@ -74,7 +74,7 @@ def generate_state_sequence(T, states, init_proba_K, trans_proba_KK, duration = 
     return drawn_states
 
 def generate_data_sequences_given_state_sequences(
-        state_sequences_TN, possible_states, mean_KD, cov_KDD):
+        state_sequences_TN, possible_states, mean_KD, cov_KDD, ordinal_labels_num=2):
     ''' Generate data given states
 
     Returns
@@ -83,6 +83,15 @@ def generate_data_sequences_given_state_sequences(
         Contains observed features for each timestep
         Any timestep with missing data will be assigned nan
     '''
+    # Set thresholds for ordinal labels, assume mean=0, sigma=1
+    ordinal_labels = range(ordinal_labels_num)
+    u_1 = 0
+    sigma_1 = 1
+    min_1 = u_1-sigma_1*3
+    max_1 = u_1+sigma_1*3
+    label_steps = (abs(max_1) + abs(min_1)) / ordinal_labels_num
+    thresholds = np.arange(min_1+label_steps, max_1, label_steps)
+
     K, D = mean_KD.shape
     T, N = state_sequences_TN.shape
     data_DTN = np.nan + np.zeros((D, T, N))
@@ -102,8 +111,10 @@ def generate_data_sequences_given_state_sequences(
             elif (state == 3)&(C>0)&(np.any(data_DTN[1, cur_bin_mask_T, n]<0)):
                 y_N[n]=1
             '''
-            if (state == 2)&(C>0)&(np.any(data_DTN[1, cur_bin_mask_T, n]>0)):
-                y_N[n]=1
+            # Iterate over the thresholds being checked in state 2
+            for ind, threshold in enumerate(thresholds, start=1):
+                if (state == 2)&(C>0)&(np.any(data_DTN[1, cur_bin_mask_T, n]>threshold)):
+                    y_N[n]=ordinal_labels[ind] # Assign label accordingly
             
     return data_DTN, y_N
 
@@ -120,6 +131,8 @@ if __name__ == "__main__":
     parser.add_argument('--n_states', type=int,  default=None)
     parser.add_argument('--output_dir', type=str, default='simulated_data/',
                         help='dir in which to save generated dataset')
+    parser.add_argument('--num_ordinal_labels', type=int, default=2, 
+                        help='number of ordinal labels desired')
     args = parser.parse_args()
     
     # Number of time steps
@@ -136,6 +149,9 @@ if __name__ == "__main__":
     rs = RandomState(args.seed)
     n_states = args.n_states
     states = np.arange(n_states)
+
+    # define number of ordinal labels
+    ordinal_labels_num = args.num_ordinal_labels
     
     # make probability of initializing and transitioning to state 0 and state 3 v.v. low
     '''
@@ -183,8 +199,9 @@ if __name__ == "__main__":
                                                           duration)
 
     # generate the time series data from the state sequence
+    # ordinal_labels_num = 2
     data_DTN, y_N = generate_data_sequences_given_state_sequences(
-        state_sequences_TN, states, mean_KD, cov_KDD)
+        state_sequences_TN, states, mean_KD, cov_KDD, ordinal_labels_num=ordinal_labels_num)
     N = data_DTN.shape[2]
     data_DTN_true = data_DTN.copy()
     
@@ -212,8 +229,8 @@ if __name__ == "__main__":
             true_df['sequence_id'] = n
             tidy_df['sequence_id'] = n
 
-            true_df['did_overheat_binary_label'] = int(y_N[n])
-            tidy_df['did_overheat_binary_label'] = int(y_N[n])
+            true_df['ordinal_label'] = int(y_N[n])
+            tidy_df['ordinal_label'] = int(y_N[n])
 
 
             seq_list.append(tidy_df)
@@ -225,7 +242,7 @@ if __name__ == "__main__":
         true_pertstep_df = true_df[['sequence_id', 'timestep'] + feature_columns].copy()
         tidy_pertstep_df = tidy_df[['sequence_id', 'timestep'] + feature_columns].copy()
 
-        tidy_perseq_df = tidy_df[['sequence_id', 'did_overheat_binary_label']]
+        tidy_perseq_df = tidy_df[['sequence_id', 'ordinal_label']]
 
         true_pertstep_df.reset_index(drop=True, inplace=True)  
         tidy_pertstep_df.reset_index(drop=True, inplace=True)  
@@ -256,16 +273,26 @@ if __name__ == "__main__":
 
         # create a plot showing examples of positive and negative labels in the simulated data
         # get examples of time series sequence with label 0 and 1 and plot it
-        inds_label_0 = np.flatnonzero(y_N==0)
-        inds_label_1 = np.flatnonzero(y_N==1)
-
         print('Total number of sequences : %s'%(len(y_N)))
-        print('Number of negative sequences : %s'%(len(inds_label_0)))
-        print('Number of positive sequences : %s'%(len(inds_label_1)))
+        inds_labels = []
+        for ordinal_label in range(ordinal_labels_num):
+            inds_label = np.flatnonzero(y_N==ordinal_label)
+            inds_labels.append(inds_label)
+            print(f'Number of y={ordinal_label} sequences : %s'%(len(inds_label)))
+        # inds_label_0 = np.flatnonzero(y_N==0)
+        # inds_label_1 = np.flatnonzero(y_N==1)
+
+
+        
+        # print('Number of positive sequences : %s'%(len(inds_label_1)))
 
         features_outcomes_df = pd.merge(features_without_imputation_df, tidy_perseq_df, on=['sequence_id'])
-        inds_label_0 = features_outcomes_df['did_overheat_binary_label']==0
-        inds_label_1 = features_outcomes_df['did_overheat_binary_label']==1
+        inds_labels_masks = []
+        for ordinal_label in range(ordinal_labels_num):
+            inds_labels_masks.append(features_outcomes_df['ordinal_label']==ordinal_label)
+
+        # inds_label_0 = features_outcomes_df['ordinal_label']==0
+        # inds_label_1 = features_outcomes_df['ordinal_label']==1
 
         fontsize = 10
 
@@ -276,15 +303,16 @@ if __name__ == "__main__":
 
             f,axs = plt.subplots(1,1, figsize=(15, 5))
             sns.set_context("notebook", font_scale=1.6)
-            feature_vals_ND_labels_0 = feat_df[inds_label_0][feature_columns].values
-            feature_vals_ND_labels_1 = feat_df[inds_label_1][feature_columns].values
+            for ordinal_label in range(ordinal_labels_num):
+                feature_vals_ND_labels_y = feat_df[inds_labels_masks[ordinal_label]][feature_columns].values
+                # feature_vals_ND_labels_1 = feat_df[inds_label_1][feature_columns].values
 
 
-            # plot time series sequence of example with label 0 and 1
-            axs.scatter(feature_vals_ND_labels_0[:, 0], feature_vals_ND_labels_0[:, 1], 
-                        marker='$x$', color='salmon', linestyle=':', alpha=0.5, label='y=0')
-            axs.scatter(feature_vals_ND_labels_1[:, 0], feature_vals_ND_labels_1[:, 1], 
-                        marker='$o$', color='b', linestyle=':', alpha=0.5, label='y=1')
+                # plot time series sequence of example with label 0 and 1
+                axs.scatter(feature_vals_ND_labels_y[:, 0], feature_vals_ND_labels_y[:, 1], 
+                            marker='$x$', linestyle=':', alpha=0.5, label=f'y={ordinal_label}')
+                # axs.scatter(feature_vals_ND_labels_1[:, 0], feature_vals_ND_labels_1[:, 1], 
+                #             marker='$o$', color='b', linestyle=':', alpha=0.5, label='y=1')
 
             axs.set_xlim([-5, 30])
             axs.set_ylim([-5, 3])
@@ -294,6 +322,7 @@ if __name__ == "__main__":
 
             axs.set_title('Raw features with %s'%(feat_aka.replace('_', ' ')))
             axs.grid(True)
+            axs.legend() # Show legend
             plot_png = os.path.join(args.output_dir, 'example_pos_and_neg_sequences_%s.png'%feat_aka)
             plot_pdf = os.path.join(args.output_dir, 'example_pos_and_neg_sequences_%s.pdf'%feat_aka)
             print('Saving generated positive and negative sequence plots to %s'%plot_png)
