@@ -90,10 +90,17 @@ class OrdinalRegression:
         # I'm a little confused how to calculate the log_likelihood wihtout the
         # weight vector, which I think should be passed into it
         # * Do I need to return a number or a vector?
+        N = X.shape[0]
 
         # Log Likelihood
         proba_NR = self.proba(w, X)
-        log_likelihood_N = np.log(proba_NR[:, y])
+        # print('PROBA')
+        # print(proba_NR)
+        # print(proba_NR.shape)
+        log_likelihood_N = np.log(proba_NR[np.arange(N), y])
+        # print('LIKELIHOOD')
+        # print(log_likelihood_N)
+        # print(log_likelihood_N.shape)
         return np.sum(log_likelihood_N)
 
     def proba(self, w, X) -> np.ndarray:
