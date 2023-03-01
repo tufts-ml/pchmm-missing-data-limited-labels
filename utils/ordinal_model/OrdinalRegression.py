@@ -55,7 +55,7 @@ class OrdinalRegression:
             cut_points_start, cut_points_end, self.padding)
         self.cut_points = np.hstack((-np.inf, base_cut_points, np.inf))
 
-        # Transform & Initialization
+        # Initialization
         init_w = self.rs.rand(self.M+1)
 
         # MLE
@@ -124,3 +124,7 @@ class OrdinalRegression:
         gaussian_cdf_NR2 = norm.cdf(z_matrix_NR2)
         proba_NR = gaussian_cdf_NR2[:, :, 0] - gaussian_cdf_NR2[:, :, 1]
         return proba_NR
+
+    def predict_proba(self, X) -> np.ndarray:
+        X_transformed = np.hstack((np.ones((X.shape[0], 1)), X))
+        return self.proba(self.w, X_transformed)
