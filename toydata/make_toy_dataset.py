@@ -91,8 +91,8 @@ def generate_data_sequences_given_state_sequences(
     ordinal_labels = range(ordinal_labels_num)
     u_1 = 0
     sigma_1 = 1
-    min_1 = u_1-sigma_1*3
-    max_1 = u_1+sigma_1*3
+    min_1 = u_1-sigma_1*2
+    max_1 = u_1+sigma_1*2
     label_steps = (abs(max_1) + abs(min_1)) / ordinal_labels_num
     thresholds = np.arange(min_1+label_steps, max_1, label_steps)
 
