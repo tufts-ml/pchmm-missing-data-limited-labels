@@ -7,7 +7,7 @@ Usage
 TODO
 ----
 * Write additional method for using softplus link function: f(x) = ln(1+e^x) -- Done
-* Include parameter on fit to show loss vs epochs
+* Include parameter on fit to show loss vs epochs--Done
 * Include paramter on fit to show traceplots
 * Write plotting function for loss vs epochs
 * Write plotting function for traceplots
@@ -38,15 +38,17 @@ class OrdinalRegression:
     """Class to fit and predict ordinal outcomes.
     """
 
-    def __init__(self, noise_variance: float = None, random_state: int = None) -> None:
+    def __init__(self, noise_variance: float = None, C: float = 0, save_loss: bool = False, random_state: int = None) -> None:
         """Constructer for OrdinalRegression class.
 
         Parameters
         ----------
         noise_variance : float, optional
             _description_, by default 1
+        C : float, optional
+            Regularization strength of cutpoints
         random_state : int, optional
-            _description_, by default None
+            Seed to set random state if desired, by default None
 
         Returns
         -------
@@ -59,6 +61,7 @@ class OrdinalRegression:
         # Parameters
         self.w = None
         self.noise_variance = noise_variance
+        self.C = C
 
         # Random State
         self.rs = np.random.RandomState(random_state)
@@ -68,7 +71,7 @@ class OrdinalRegression:
         self.directory = pathlib.Path.cwd()
 
         # Logging
-        self.save_loss = False
+        self.save_loss = save_loss
         return None
 
     def set_params(self, **kwargs) -> None:
@@ -84,8 +87,8 @@ class OrdinalRegression:
             setattr(self, key, value)
         return None
 
-    def fit(self, X: np.ndarray, y: np.ndarray, save_loss: bool = False) -> None:
-        """_summary_
+    def fit(self, X: np.ndarray, y: np.ndarray) -> None:
+        """Fit the model using the training data and ordinal labels.
 
         Parameters
         ----------
@@ -100,7 +103,8 @@ class OrdinalRegression:
 
         TODO
         ----
-        * What should the parameters for scipy.minimize be?
+        * What should the parameters for scipy.minimize be?--Done
+            * Prof. Hughes suggested to switch back to value_and_grad--Done
         * Should be eventually rewritten in tensorflow/pytorch
         * Rewrite paramaters to be dummy values that get passed through
           softplus in the learning function so that we ensure positive real--DONE
@@ -114,7 +118,7 @@ class OrdinalRegression:
         R = y.max()+1
 
         # Transform
-        # * Add bias parameter to X
+        # * Adds bias feature to X
         X_transformed = self._transform(X)
         self.X = X
         self.y = y
@@ -129,8 +133,9 @@ class OrdinalRegression:
         # self.cut_points = np.hstack((-np.inf, base_cut_points, np.inf))
 
         # Initialized parameters
-        # Sigma - Noise variance initialized at sigma=1
-        # * r is unconstrained parameter to represent constrained sigma at > 0
+        # Variance - Noise variance initialized at variance=1
+        # * r is unconstrained parameter to represent constrained variance at > 0
+        # * Choose whether to learn variance as a parameter or not
         if self.noise_variance is None:
             init_r = softplus_inv(1)
         else:
@@ -155,7 +160,6 @@ class OrdinalRegression:
 
         # Combine into a single np.ndarray since scipy only accepts arrays
         init_params = np.hstack((init_r, init_b1, init_epsilons, init_w))
-        # init_params = self.rs.normal(size=7)
         print('INIT PARAMS:')
         print(init_params)
 
@@ -164,14 +168,12 @@ class OrdinalRegression:
         def loss_function(params):
             print('PARAMS:')
             print(params)
-            # Sigma
+            # Variance
             # TODO: for some reason, trying to learn sigma is leading to NaNs
             if self.noise_variance is None:
-                sigma = softplus(params[0])
+                variance = softplus(np.array(params[0])[np.newaxis])
             else:
-                sigma = self.noise_variance  # baseline where sigma doesn't change
-            # print('sigma:')
-            # print(sigma)
+                variance = self.noise_variance  # baseline where sigma doesn't change
 
             # Cutpoints
             deltas = softplus(params[2:R])  # 2+R-2 = R
@@ -184,7 +186,9 @@ class OrdinalRegression:
 
             # Weights
             w = params[R:]
-            return -self.log_likelihood(sigma, w, b, X_transformed, y)
+
+            # Return negative log-likelihood with complexity penalty (optional)
+            return -self.log_likelihood(variance, w, b, X_transformed, y) + self.C * np.sum(b**2)
 
         # Use scipy.minimize to find global minimum and return parameters
         # params = minimize(
@@ -197,34 +201,35 @@ class OrdinalRegression:
         # print('GRADIENT')
         # print(a_gradient(init_params))
 
-        # Neg log likelihood log file
+        # Callback function to produce Neg log likelihood log file
         def callbackF(xk):
-            # global Nfeval
+            # print(xk)
             with open(self.directory.joinpath('neg_log_likelihood.csv'), 'a') as f:
                 print(f'{self.Nfeval},{loss_function(xk)/N}', file=f)
             self.Nfeval += 1
-        if save_loss == True:
-            self.save_loss = True
+
+        # Use scipy.minimize to find global minimum and return parameters
+        # Save negative log loss plot as csv and plot if desired
+        if self.save_loss == True:
             self.Nfeval = 1
+            # Create log file
             with open(self.directory.joinpath('neg_log_likelihood.csv'), 'w') as f:
                 print('Iter,Neg_Log_Likelihood_per_sample', file=f)
             params = minimize(
-                fun=loss_function,
-                jac=grad(loss_function),
-                # value_and_grad(loss_function),
+                fun=value_and_grad(loss_function),
                 x0=init_params,
-                # jac=True,
+                jac=True,
                 method='L-BFGS-B',
                 callback=callbackF,
             ).x
+
+            # Plot the neg log likelihood over time
             self._plot_log_likelihood()
         else:
             params = minimize(
-                fun=loss_function,
-                jac=grad(loss_function),
-                # value_and_grad(loss_function),
+                fun=value_and_grad(loss_function),
                 x0=init_params,
-                # jac=True,
+                jac=True,
                 method='L-BFGS-B',
             ).x
         self.noise_variance = softplus(params[0])
@@ -239,7 +244,6 @@ class OrdinalRegression:
         self.w = params[R:]
         print('best weights:')
         print(self.w)
-
         return None
 
     def _transform(self, X: np.ndarray) -> np.ndarray:
@@ -251,21 +255,16 @@ class OrdinalRegression:
         Parameters
         ----------
         X : np.ndarray
-            _description_
+            Raw feature data
 
         Returns
         -------
         X_transformed : np.ndarray
-            _description_
+            Transformed feature data
         """
-        # Add additional column for bias weight
+        # Add additional column of 1s for bias weight
         N = X.shape[0]
         X_transformed = np.hstack((np.ones((N, 1)), X))
-
-        # Standard scale data
-        # self.scaler = StandardScaler()
-        # self.scaler.fit(X)
-        # X_transformed = self.scaler.transform(X)
         return X_transformed
 
     def _inverse_transform(self, X_transformed) -> np.ndarray:
@@ -274,12 +273,12 @@ class OrdinalRegression:
         Parameters
         ----------
         X_transformed : _type_
-            _description_
+            Transformed feature data
 
         Returns
         -------
         X : np.ndarray
-            _description_
+            Raw feature data
         """
         return X_transformed[:, 1:]
 
@@ -289,12 +288,12 @@ class OrdinalRegression:
         Parameters
         ----------
         X : _type_
-            _description_
+            Raw feature data.
 
         Returns
         -------
-        np.ndarray
-            _description_
+        y_predict : np.ndarray
+            Predicted ordinal labels.
         """
         X_transformed = self._transform(X)
         best_proba_NR = self.proba(
@@ -302,32 +301,32 @@ class OrdinalRegression:
         y_predict = np.argmax(best_proba_NR, axis=1)
         return y_predict
 
-    def log_likelihood(self, sigma, w, b, X, y) -> float:
+    def log_likelihood(self, variance, w, b, X, y) -> float:
         """Compute log-likelihood.
 
         Parameters
         ----------
-        sigma : _type_
+        variance : _type_
                 Noise variance
         w : _type_
-            _description_
+            Latent function feature weights
         b : _type_
-            _description_
+            Cutpoints
         X : _type_
-            _description_
+            Raw feature data
         y : _type_
-            _description_
+            Corresponding ordinal labels
 
         Returns
         -------
         log_likelihood : float
-            _description_
+            Log likelihood given sample data.
         """
         # Useful parameters
         N = X.shape[0]
 
         # Log Likelihood
-        proba_NR = self.proba(sigma, w, b, X)
+        proba_NR = self.proba(variance, w, b, X)
         log_likelihood_N = np.log(proba_NR[np.arange(N), y] + 1e-7)
         # print('NEG LOG LIKELIHOOD:')
         # if self.save_loss == True:
@@ -335,25 +334,25 @@ class OrdinalRegression:
         #         print(-np.sum(log_likelihood_N)/N, file=f)
         return np.sum(log_likelihood_N)
 
-    def proba(self, sigma, w, b, X) -> np.ndarray:
+    def proba(self, variance, w, b, X) -> np.ndarray:
         """Compute probabilities of each ordinal outcome given a set of weights
         and cut-points.
 
         Parameters
         ----------
-        sigma : _type_
+        variance : _type_
                 Noise variance
         w : _type_
-            _description_
+            Latent function feature weights
         b : _type_
-            _description_
+            Cutpoints
         X : _type_
-            _description_
+            Raw feature data
 
         Returns
         -------
-        proba : np.ndarray
-            _description_
+        proba : np.ndarray, shape: (NxD)
+            Probabilities of being classified as each ordinal label
         """
         # Initialize values
         # print('SIGMA')
@@ -365,6 +364,13 @@ class OrdinalRegression:
         R = b.size - 1
         z_matrix_NR_1 = np.zeros((N, 0))
         z_matrix_NR_2 = np.zeros((N, 0))
+        f_x = X @ w
+
+        # variance = np.array(variance)
+        print('VARIANCE:')
+        print(variance)
+        # sigma = np.sqrt(np.repeat(variance, N))
+
         # Iterate through possible ordinal outcomes
         for j in range(R):
             # Note: Indexing is not supported
@@ -374,14 +380,17 @@ class OrdinalRegression:
             # z_matrix_NR2[:, bi, 1] = (
             #     self.cut_points[bi] - (X @ w)
             # ) / np.sqrt(self.noise_variance)
-            z_bj_1 = ((b[j+1] - (X @ w)) /
-                      np.sqrt(sigma))[:, np.newaxis]
-            z_bj_2 = ((b[j] - (X @ w)) /
-                      np.sqrt(sigma))[:, np.newaxis]
+            z_bj_1 = ((b[j+1] - (f_x)) / np.sqrt(variance))[:, np.newaxis]
+            z_bj_2 = ((b[j] - (f_x)) / np.sqrt(variance))[:, np.newaxis]
             # if z_matrix_NR_1 is None and z_matrix_NR_2 is None:
             #     z_matrix_NR_1 = z_bi_1
             #     z_matrix_NR_2 = z_bi_2
             # else:
+            # print('SHAPES')
+            # print(z_matrix_NR_1.shape)
+            # print(z_bj_1.shape)
+            # print(z_matrix_NR_2.shape)
+            # print(z_bj_2.shape)
             z_matrix_NR_1 = np.hstack((z_matrix_NR_1, z_bj_1))
             z_matrix_NR_2 = np.hstack((z_matrix_NR_2, z_bj_2))
         z_matrix_NR2 = np.concatenate(
@@ -390,14 +399,14 @@ class OrdinalRegression:
         proba_NR = gaussian_cdf_NR2[:, :, 0] - gaussian_cdf_NR2[:, :, 1]
         return proba_NR
 
-    def predict_proba(self, X) -> np.ndarray:
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
         """Obtain the probabilities of each ordinal outcome given the best
         weights and cut-points.
 
         Parameters
         ----------
-        X : _type_
-            _description_
+        X : np.ndarray
+            Raw feature data
 
         Returns
         -------
@@ -408,8 +417,16 @@ class OrdinalRegression:
         return self.proba(self.noise_variance, self.w, self.b, X_transformed)
 
     def _plot_log_likelihood(self) -> None:
+        """Helper method to plot the negative log-likelihood per sample over
+        time.
+
+        Might include complexity penalty in evaluation.
+        """
+        # Read the csv containing the losses
         df_log_likelihood_per_sample = pd.read_csv(
             self.directory.joinpath('neg_log_likelihood.csv'))
+
+        # Plot
         fig, ax = plt.subplots()
         ax.plot(df_log_likelihood_per_sample['Iter'],
                 df_log_likelihood_per_sample['Neg_Log_Likelihood_per_sample'])
@@ -426,14 +443,33 @@ def softplus(x) -> np.ndarray:
     # print('SOFTPLUS')
     # print(x)
     # print(np.log(1 + np.exp(x)))
-    return np.log(1 + np.exp(x))
+    # print('X VALUES')
+    # print(x)
+    # print(x.shape)
+    # mask1_N = x > 5
+    # mask0_N = np.logical_not(mask1_N)
+    # out_N = np.zeros(x.shape, dtype=np.float64)
+    # # print('MASK1')
+    # # print(mask1_N)
+    # # print(mask1_N.shape)
+    # # print('MASK0')
+    # # print(mask0_N)
+    # # print(mask0_N.shape)
+    # # print('OUT')
+    # # print(out_N)
+    # # print(out_N.shape)
+    # out_N[mask0_N] = np.log1p(np.exp(x[mask0_N]))
+    # out_N[mask1_N] = np.log1p(np.exp(-x[mask1_N])) + x[mask1_N]
+    # np.log1p(np.exp(-np.abs(x))) + np.maximum(x, 0)
+    # out_N = mask0_N * np.log1p(np.exp(x)) + mask1_N * (np.log1p(np.exp(-x))+x)
+    return np.log1p(np.exp(-np.abs(x))) + np.maximum(x, 0)
 
 
 def softplus_inv(x) -> np.ndarray:
     # print('SOFTPLUS INVERSE')
     # print(x)
     # print(np.log(np.exp(x) - 1))
-    return np.log(np.exp(x) - 1)
+    return np.log1p(-np.exp(-x)) + x
 
 
 def plot_model(model):
@@ -443,8 +479,10 @@ def plot_model(model):
     y = model.y
     x0 = model.X[:, 0]
     x1 = model.X[:, 1]
-    x0_lims = [10, 16]  # set the limits on x-axis close to the data
-    x1_lims = [-3.5, 3.5]  # set the limits on y-axis close to the data
+    # set the limits on x-axis close to the data
+    x0_lims = [x0.min()-1, x0.max()+1]
+    # set the limits on y-axis close to the data
+    x1_lims = [x1.min()-1, x1.max()+1]
     grid_resolution = 1000
     eps = 1.0
     x0_min, x0_max = x0_lims[0] - eps, x0_lims[1] + eps
@@ -467,17 +505,29 @@ def plot_model(model):
 
     # set the colormap
     blue_colors = plt.cm.Blues(np.linspace(0, 1, 201))
+    blue_colors[:, 3] = np.linspace(0, 1, 201)
     blue_cmap = matplotlib.colors.ListedColormap(blue_colors)
     orange_colors = plt.cm.Oranges(np.linspace(0, 1, 201))
+    orange_colors[:, 3] = np.linspace(0, 1, 201)
     orange_cmap = matplotlib.colors.ListedColormap(orange_colors)
     green_colors = plt.cm.Greens(np.linspace(0, 1, 201))
+    green_colors[:, 3] = np.linspace(0, 1, 201)
     green_cmap = matplotlib.colors.ListedColormap(green_colors)
     red_colors = plt.cm.Reds(np.linspace(0, 1, 201))
+    red_colors[:, 3] = np.linspace(0, 1, 201)
     red_cmap = matplotlib.colors.ListedColormap(red_colors)
+
+    grey_colors = plt.cm.Greys(np.linspace(0, 1, 201))
+    grey_colors[:, 3] = 0.4
+    grey_cmap = matplotlib.colors.ListedColormap(grey_colors)
 
     f, axs = plt.subplots(1, 1, figsize=(5, 5))
     divider = make_axes_locatable(axs)
     cax = divider.append_axes('right', size='5%', pad=0.2)
+    # cax0 = divider.append_axes('right', size='5%', pad=0.2)
+    # cax1 = divider.append_axes('right', size='5%', pad=0.3)
+    # cax2 = divider.append_axes('right', size='5%', pad=0.4)
+    # cax3 = divider.append_axes('right', size='5%', pad=0.5)
     axs.set_xlim(x0_lims)
     axs.set_ylim(x1_lims)
     axs.grid(False)
@@ -516,13 +566,13 @@ def plot_model(model):
     # plot the data as scatter plot
 
     axs.scatter(x0[y == 0], x1[y == 0],
-                marker='x', color='blue', alpha=0.9)
+                marker='x', linewidths=1, color='darkblue', alpha=0.9)
     axs.scatter(x0[y == 1], x1[y == 1],
-                marker='x', color='orange', alpha=0.9)
+                marker='x', linewidths=1, color='darkorange', alpha=0.9)
     axs.scatter(x0[y == 2], x1[y == 2],
-                marker='x', color='green', alpha=0.9)
+                marker='x', linewidths=1, color='darkgreen', alpha=0.9)
     axs.scatter(x0[y == 3], x1[y == 3],
-                marker='x', color='red', alpha=0.9)
+                marker='x', linewidths=1, color='darkred', alpha=0.9)
     # axs.plot(x_pos_ND[:, 0], x_pos_ND[:, 1], 'r+', alpha=0.6)
     # axs.set_xticks([-3, 0, 3])
     # axs.set_yticks([-3, 0, 3])
@@ -531,36 +581,38 @@ def plot_model(model):
     bottom, top = x1_min, x1_max
     im0 = axs.imshow(
         p_grid[:, [0]].reshape(xx0.shape),
-        alpha=0.6, cmap=blue_cmap,
+        alpha=0.4, cmap=blue_cmap,
         interpolation='nearest',
         origin='lower',  # this is crucial
         extent=(left, right, bottom, top),
-        vmin=0.1, vmax=1.0)
+        vmin=0.0, vmax=1.0)
     im1 = axs.imshow(
         p_grid[:, [1]].reshape(xx0.shape),
-        alpha=0.6, cmap=orange_cmap,
+        alpha=0.4, cmap=orange_cmap,
         interpolation='nearest',
         origin='lower',  # this is crucial
         extent=(left, right, bottom, top),
-        vmin=0.6, vmax=1.0)
+        vmin=0.0, vmax=1.0)
     im2 = axs.imshow(
         p_grid[:, [2]].reshape(xx0.shape),
-        alpha=0.6, cmap=green_cmap,
+        alpha=0.4, cmap=green_cmap,
         interpolation='nearest',
         origin='lower',  # this is crucial
         extent=(left, right, bottom, top),
-        vmin=0.1, vmax=1.0)
+        vmin=0.0, vmax=1.0)
     im3 = axs.imshow(
         p_grid[:, [3]].reshape(xx0.shape),
-        alpha=0.6, cmap=red_cmap,
+        alpha=0.4, cmap=red_cmap,
         interpolation='nearest',
         origin='lower',  # this is crucial
         extent=(left, right, bottom, top),
-        vmin=0.1, vmax=1.0)
-    # cbar0 = plt.colorbar(im0, cax=cax, ticks=[0, 0.2, 0.4, 0.6, 0.8, 1.0])
-    # cbar1 = plt.colorbar(im1, cax=cax, ticks=[0, 0.2, 0.4, 0.6, 0.8, 1.0])
-    # cbar2 = plt.colorbar(im2, cax=cax, ticks=[0, 0.2, 0.4, 0.6, 0.8, 1.0])
-    # cbar3 = plt.colorbar(im3, cax=cax, ticks=[0, 0.2, 0.4, 0.6, 0.8, 1.0])
+        vmin=0.0, vmax=1.0)
+    cbar = plt.colorbar(plt.cm.ScalarMappable(
+        cmap=grey_cmap), cax=cax, ticks=[0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    # cbar0 = plt.colorbar(im0, cax=cax0, ticks=[0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    # cbar1 = plt.colorbar(im1, cax=cax1, ticks=[0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    # cbar2 = plt.colorbar(im2, cax=cax2, ticks=[0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    # cbar3 = plt.colorbar(im3, cax=cax3, ticks=[0, 0.2, 0.4, 0.6, 0.8, 1.0])
     # cbar0.draw_all()
     # cbar1.draw_all()
     # cbar2.draw_all()

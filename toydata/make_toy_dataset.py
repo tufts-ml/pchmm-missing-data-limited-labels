@@ -78,7 +78,7 @@ def generate_state_sequence(T, states, init_proba_K, trans_proba_KK, duration=2)
 
 
 def generate_data_sequences_given_state_sequences(
-        state_sequences_TN, possible_states, mean_KD, cov_KDD, ordinal_labels_num=2):
+        state_sequences_TN, possible_states, mean_KD, cov_KDD, ordinal_labels_num=2, include_noise=False):
     ''' Generate data given states
 
     Returns
@@ -117,9 +117,28 @@ def generate_data_sequences_given_state_sequences(
                 y_N[n]=1
             '''
             # Iterate over the thresholds being checked in state 2
-            for ind, threshold in enumerate(thresholds, start=1):
-                if (state == 2) & (C > 0) & (np.any(data_DTN[1, cur_bin_mask_T, n] > threshold)):
-                    y_N[n] = ordinal_labels[ind]  # Assign label accordingly
+            if (state == 2) & (C > 0):
+                for ind, threshold in enumerate(thresholds, start=1):
+                    if include_noise:
+                        if ind == len(thresholds):
+                            if (np.any(data_DTN[1, cur_bin_mask_T, n] > threshold)):
+                                # Assign label accordingly
+                                y_N[n] = np.random.choice(
+                                    ordinal_labels[ind-1:], p=[0.05, 0.95])
+                        else:
+                            if (np.any(data_DTN[1, cur_bin_mask_T, n] > threshold)) & (np.any(data_DTN[1, cur_bin_mask_T, n] <= thresholds[ind])):
+                                # Assign label accordingly
+                                y_N[n] = np.random.choice(
+                                    ordinal_labels[ind-1:ind+2], p=[0.05, 0.90, 0.05])
+                            if ind == 1:
+                                if (np.any(data_DTN[1, cur_bin_mask_T, n] <= threshold)):
+                                    # Assign label accordingly
+                                    y_N[n] = np.random.choice(
+                                        ordinal_labels[:ind+1], p=[0.95, 0.05])
+                    else:
+                        if (state == 2) & (C > 0) & (np.any(data_DTN[1, cur_bin_mask_T, n] > threshold)):
+                            # Assign label accordingly
+                            y_N[n] = ordinal_labels[ind]
 
     return data_DTN, y_N
 
@@ -139,6 +158,8 @@ if __name__ == "__main__":
                         help='dir in which to save generated dataset')
     parser.add_argument('--num_ordinal_labels', type=int, default=2,
                         help='number of ordinal labels desired')
+    parser.add_argument('--ordinal_noise', type=bool, default=False,
+                        help='whether the ordinal labels should be selected with some noise')
     args = parser.parse_args()
 
     # Number of time steps
@@ -152,12 +173,14 @@ if __name__ == "__main__":
     Nmax = args.Nmax
 
     # get number of states and define init probas
-    rs = RandomState(args.seed)
     n_states = args.n_states
     states = np.arange(n_states)
 
     # define number of ordinal labels
     ordinal_labels_num = args.num_ordinal_labels
+
+    # decide whether ordinal labels should be generated with noise
+    include_noise = args.ordinal_noise
 
     # make probability of initializing and transitioning to state 0 and state 3 v.v. low
     '''
@@ -206,7 +229,7 @@ if __name__ == "__main__":
     # generate the time series data from the state sequence
     # ordinal_labels_num = 2
     data_DTN, y_N = generate_data_sequences_given_state_sequences(
-        state_sequences_TN, states, mean_KD, cov_KDD, ordinal_labels_num=ordinal_labels_num)
+        state_sequences_TN, states, mean_KD, cov_KDD, ordinal_labels_num=ordinal_labels_num, include_noise=include_noise)
     N = data_DTN.shape[2]
     data_DTN_true = data_DTN.copy()
 
@@ -216,11 +239,17 @@ if __name__ == "__main__":
     # print(y_TN)
     data_state_2 = data_DTN_true[:, state_2_mask_TN]
     y_state_2 = y_TN[state_2_mask_TN]
+
+    # Format filename
+    filename = 'features_from_state_2'
+    if include_noise:
+        filename += '_with_noise'
+
     state_2_df = pd.DataFrame(data_state_2.T, columns=[
                               'temperature_1', 'temperature_2'])
     state_2_df['ordinal_label'] = y_state_2.astype(int)
     state_2_csv = os.path.join(
-        args.output_dir, 'features_from_state2.csv')
+        args.output_dir, f'{filename}.csv')
     state_2_df.to_csv(state_2_csv, index=False)
 
     # Plotting state = 2
@@ -237,7 +266,7 @@ if __name__ == "__main__":
     axs.grid(True)
     axs.legend()  # Show legend
     state_2_png = os.path.join(
-        args.output_dir, 'features_from_state_2.png')
+        args.output_dir, f'{filename}.png')
     # plot_pdf = os.path.join(
     #     args.output_dir, 'example_pos_and_neg_sequences_%s.pdf' % feat_aka)
     f.savefig(state_2_png, bbox_inches='tight', pad_inches=0)
