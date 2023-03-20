@@ -40,6 +40,7 @@ class ToyOrdinalData:
         self.rs = np.random.RandomState(seed)
         self.export_path = Path(__file__).parents[2].joinpath(
             'toydata', 'ordinal_data')
+        self.mean_scale = None
 
     def generate_data(self, toy_type: str, N_scale: int = 500):
         self.N_scale = N_scale
@@ -56,8 +57,25 @@ class ToyOrdinalData:
         else:
             pass
 
-    def stacked_gaussian(self):
-        pass
+    def stacked_gaussian(self, mean_scale: float = 2):
+        self.filename = 'stacked_gaussian'
+        self.plot_title = 'Stacked Gaussian'
+        self.mean_scale = mean_scale
+        mean_D2 = np.hstack((np.zeros((self.num_ordinal_labels, 1)),
+                             np.arange(0, self.num_ordinal_labels*mean_scale, mean_scale)[:, np.newaxis]))
+        cov_D22 = np.stack([np.diag([1, 2])
+                           for i in range(self.num_ordinal_labels)])
+        data_N2 = np.zeros((0, 2))
+        labels_N = np.zeros((0, 1))
+        for i in range(self.num_ordinal_labels):
+            n = int(self.N_scale*self.density)
+            data_i2 = self.rs.multivariate_normal(
+                mean_D2[i, :], cov_D22[i, :, :], size=n)
+            labels_i = np.ones((n, 1)) * i
+            data_N2 = np.vstack((data_N2, data_i2))
+            labels_N = np.vstack((labels_N, labels_i))
+        self.data = data_N2.copy()
+        self.labels = labels_N.squeeze().copy()
 
     def crescent_shapes(self, mean_scale: float = 2.5):
         self.filename = 'crescent_shapes'
@@ -131,12 +149,21 @@ class ToyOrdinalData:
             data_i = data_N2[labels_N == i]
             ax.scatter(data_i[:, 0], data_i[:, 1],
                        marker='x', linewidths=1, label=f'y={i}')
-        ax.set_title(
-            f'{self.plot_title} Ordinal Data with {self.num_ordinal_labels} labels\nDensity factor = {self.density}')
+        formatted_title = f'{self.plot_title} Ordinal Data with {self.num_ordinal_labels} labels\nDensity factor = {self.density}'
+        if self.mean_scale is not None:
+            formatted_title += f'\nMean scale = {self.mean_scale}'
+        ax.set_title(formatted_title)
         ax.grid(True)
         ax.legend()
+        ax.axis('equal')
+
+        formatted_filename = f'{self.filename}_{self.num_ordinal_labels}_labels_{self.density}_densityfactor'
+        if self.mean_scale is not None:
+            formatted_filename += f'_{self.mean_scale}_meanscale'
+        formatted_filename += '.png'
+
         if export:
-            plt.savefig(self.export_path.joinpath(f'{self.filename}_{self.num_ordinal_labels}_labels_{self.density}_densityfactor.png'),
+            plt.savefig(self.export_path.joinpath(formatted_filename),
                         bbox_inches='tight', pad_inches=0)
         else:
             plt.show()
@@ -145,8 +172,14 @@ class ToyOrdinalData:
         data_labels_df = pd.DataFrame(
             self.data, columns=['x1', 'x2'])
         data_labels_df['ordinal_label'] = self.labels.astype(int)
+
+        formatted_filename = f'{self.filename}_{self.num_ordinal_labels}_labels_{self.density}_densityfactor'
+        if self.mean_scale is not None:
+            formatted_filename += f'_{self.mean_scale}_meanscale'
+        formatted_filename += '.csv'
+
         data_labels_df.to_csv(self.export_path.joinpath(
-            f'{self.filename}_{self.num_ordinal_labels}_labels_{self.density}_densityfactor.csv'), index=False)
+            formatted_filename), index=False)
 
 
 if __name__ == '__main__':

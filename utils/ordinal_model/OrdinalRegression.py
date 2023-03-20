@@ -2,19 +2,29 @@
 """
 Maximum-likelihood estimator for ordinal regression.
 
-Usage
------
 TODO
 ----
-* Write additional method for using softplus link function: f(x) = ln(1+e^x) -- Done
-* Include parameter on fit to show loss vs epochs--Done
-* Include paramter on fit to show traceplots
-* Write plotting function for loss vs epochs
+* [Done] Write additional method for using softplus link function: f(x) = ln(1+e^x)
+* [Done] Include parameter on fit to show loss vs epochs
+* Include parameter on fit to show traceplots
+* [Done] Write plotting function for loss vs epochs
 * Write plotting function for traceplots
-* Remove scaling -- Done
+* [Done] Remove scaling
     * Initialize weights accordingly
 * Confirm with Preetish/Hughes what exactly needs to be plotted for the traceplots
-    * Preetish suggested decision boundries
+    * [Done] Preetish suggested decision boundaries
+* Vectorize the probability computation so that we do not have to loop
+* Develop a log_proba method so that we do not have to worry about over/underflow
+* Test on multi-dimensional (3+) data
+* Test with kernel to improve separation boundaries
+
+FIXME
+-----
+* Optimize cannot train on variance
+    * Generate plot of loss at various variances by grid searching on variance
+      once the rest of the parameters have been optimally found
+      (hope that this will illuminate why the params are going to nan)
+
 """
 import pathlib
 
@@ -31,15 +41,13 @@ from scipy.optimize import minimize
 
 from sklearn.preprocessing import StandardScaler
 
-from ordinal_model.ordinal_log_likelihood import log_likelihood, proba
-
 
 class OrdinalRegression:
     """Class to fit and predict ordinal outcomes.
     """
 
     def __init__(self, noise_variance: float = None, C: float = 0, save_loss: bool = False, random_state: int = None) -> None:
-        """Constructer for OrdinalRegression class.
+        """Constructor for OrdinalRegression class.
 
         Parameters
         ----------
@@ -93,9 +101,9 @@ class OrdinalRegression:
         Parameters
         ----------
         X : np.ndarray
-            _description_
+            Raw feature data
         y : np.ndarray
-            _description_
+            Ground truth ordinal labels
 
         Returns
         -------
@@ -106,11 +114,14 @@ class OrdinalRegression:
         * What should the parameters for scipy.minimize be?--Done
             * Prof. Hughes suggested to switch back to value_and_grad--Done
         * Should be eventually rewritten in tensorflow/pytorch
-        * Rewrite paramaters to be dummy values that get passed through
+        * Rewrite parameters to be dummy values that get passed through
           softplus in the learning function so that we ensure positive real--DONE
         * Add epsilons additively to the cutpoints (where the first is just a 
           positive real) to ensure that they remain in the same order--DONE
         * Change minimize() method to L-BFGS--DONE
+
+        FIXME
+        -----
         * Troubleshoot why constraining sigma leads to NaNs
         """
         # Relevant parameters
@@ -367,8 +378,8 @@ class OrdinalRegression:
         f_x = X @ w
 
         # variance = np.array(variance)
-        print('VARIANCE:')
-        print(variance)
+        # print('VARIANCE:')
+        # print(variance)
         # sigma = np.sqrt(np.repeat(variance, N))
 
         # Iterate through possible ordinal outcomes
@@ -438,6 +449,78 @@ class OrdinalRegression:
         plt.savefig(self.directory.joinpath('neg_log_likelihood.png'),
                     bbox_inches='tight', pad_inches=0)
 
+    def grid_search_variance(self) -> None:
+        # Training data
+        X = self.X
+        y = self.y
+        X_transformed = self._transform(X)
+
+        # Relevant parameters
+        N, M = X.shape
+        R = y.max()+1
+
+        # Define a constrain and inverse constrain params functions
+        best_b = self.b
+        best_w = self.w
+
+        b1 = best_b[0]
+        deltas = np.diff(best_b)
+        # print(deltas)
+
+        # Define loss function
+        def loss_function(params):
+            # Variance
+            variance = softplus(params[0])
+
+            # Cutpoints
+            deltas = softplus(params[2:R])  # 2+R-2 = R
+            # Use cumsum() to construct cutpoints from b1 and deltas
+            b = np.cumsum(np.hstack((params[1], deltas)))
+
+            # Weights
+            w = params[R:]
+
+            # Return negative log-likelihood with complexity penalty (optional)
+            return -self.log_likelihood(variance, w, b, X_transformed, y) + self.C * np.sum(b**2)
+
+        # Choose grid to search over (various values for variance)
+        variances = np.logspace(-10, 2, 1000)
+        # variances = np.hstack((np.linspace(0, 1, 1000), variances))
+        # variances[0] = 0.01
+        rs, epsilons = constrain_inv(variances, deltas)
+        # print(rs)
+        # print(epsilons)
+
+        # Compute loss over each variance
+        losses = []
+        for i in range(variances.size):
+            r = rs[i]
+            params = np.hstack((r, b1, epsilons, best_w))
+            losses.append(loss_function(params))
+
+        min_loss = np.min(losses)
+        min_variance = variances[np.argmin(losses)]
+
+        # Plot loss
+        fig, ax = plt.subplots()
+        ax.plot(variances, losses)
+        ax.plot(min_variance, min_loss, 'rx')
+        ax.annotate(
+            f'Minimum loss @ variance = {min_variance:0.2f}',
+            (min_variance, min_loss),
+            xytext=(5, -10),
+            textcoords='offset pixels',
+        )
+        ax.set_xlabel('Noise variance')
+        ax.set_ylabel('Computed loss')
+        ax.set_title(
+            'Loss at various noise variances')
+        ax.grid(True)
+        plt.savefig(self.directory.joinpath('loss_vs_variance.png'),
+                    bbox_inches='tight', pad_inches=0)
+        plt.show()
+        return variances, losses
+
 
 def softplus(x) -> np.ndarray:
     # print('SOFTPLUS')
@@ -472,10 +555,31 @@ def softplus_inv(x) -> np.ndarray:
     return np.log1p(-np.exp(-x)) + x
 
 
+def constrain(*omega_params):
+    return list(map(softplus_inv, omega_params))
+
+
+def constrain_inv(*params):
+    return list(map(softplus_inv, params))
+
+
 def plot_model(model):
-    ''' Function to plot the decision boundaries given a model
-    model : sklearn like classifier or regressor that outputs decision scores f(x) for any input x
-    '''
+    """Function to plot the decision boundaries given a model
+
+    Parameters
+    ----------
+    model : _type_
+        sklearn like classifier or regressor that outputs decision scores f(x) for any input x
+
+    TODO
+    ----
+    * Generalize so that the function works with any number of ordinal labels
+        * create a list of colors that are guaranteed to have the right color
+          maps
+        * Probably limited to the number of colormaps available. Assert that
+          the function is not supported for more than N color maps
+    * Assert that this is not supported for more than 2 dimensions
+    """
     y = model.y
     x0 = model.X[:, 0]
     x1 = model.X[:, 1]
