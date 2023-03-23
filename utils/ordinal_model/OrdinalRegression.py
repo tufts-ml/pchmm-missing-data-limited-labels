@@ -46,6 +46,10 @@ from sklearn.preprocessing import StandardScaler
 
 import imageio
 
+################################################################################
+# Class
+################################################################################
+
 
 class OrdinalRegression:
     """Class to fit and predict ordinal outcomes.
@@ -563,6 +567,11 @@ class OrdinalRegression:
         time.
 
         Might include complexity penalty in evaluation.
+
+        Plots
+        -----
+        Log-Likelihood vs Time plot
+            Exports plot to current working directory
         """
         # Read the csv containing the losses
         df_log_likelihood_per_sample = pd.read_csv(
@@ -581,12 +590,18 @@ class OrdinalRegression:
                     bbox_inches='tight', pad_inches=0)
 
     def grid_search_variance(self, out_dir: pathlib.Path = None, iteration: int = None) -> tuple[float, float]:
-        """_summary_
+        """Given the current best parameters obtained from optimization,
+        determines the best variance that minimizes loss.
+
+        Performs a grid search over possible variances given trained parameters.
 
         Returns
         -------
-        tuple[float, float]
-            _description_
+        min_variance : float
+            Variances that minimizes loss
+
+        min_loss : float
+            Minimum loss obtained from grid search
         """
         # Set output directory
         if out_dir is None:
@@ -669,15 +684,34 @@ class OrdinalRegression:
         return min_variance, min_loss
 
     def find_global_minimum_variance(self, iter=50) -> float:
+        """Attempts to find variance that minimizes loss globally by alternating
+        between grid searching variance given trained parameters and retraining
+        parameters with new variance.
+
+        Assumes that at least one optimization has already occurred for the
+        model (i.e. self.fit() has been called already).
+
+        Parameters
+        ----------
+        iter : int, optional
+            Number of iterations desired, by default 50
+
+        Returns
+        -------
+        min_variance : float
+            Best variances obtained from algorithm search
+        """
         # Set up output directory
         out_dir = self.directory.joinpath('loss_variance_frames')
         out_dir.mkdir(exist_ok=False)
 
+        # Alternate grid searching and training
         for i in range(iter):
             min_variance, _ = self.grid_search_variance(
                 out_dir=out_dir, iteration=i)
             self.fit(self.X, self.y, fit_noise_variance=min_variance)
 
+        # Generate animation to show loss curve and minimum changes
         frames = []
         for path in sorted(out_dir.glob('*.png'), reverse=False):
             if path.is_file() and path.suffix == '.png':
@@ -685,11 +719,26 @@ class OrdinalRegression:
                 frames.append(image)
         imageio.mimsave(out_dir.joinpath('loss_variance.gif'),  # output gif
                         frames,          # array of input frames
-                        fps=5)         # optional: frames per second
+                        fps=5,           # optional: frames per second
+                        )
         return min_variance
 
 
-def softplus(x) -> ag_np.ndarray:
+def softplus(x: ag_np.ndarray) -> ag_np.ndarray:
+    """Implements the softplus activation function to constrain values.
+
+    Broadcasts function to all elements in np.ndarray.
+
+    Parameters
+    ----------
+    x : ag_np.ndarray
+        Array-like to be transformed with softplus
+
+    Returns
+    -------
+    ag_np.ndarray
+        Softplus returned values in same shape as input array
+    """
     # print('SOFTPLUS')
     # print(x)
     # print(ag_np.log(1 + ag_np.exp(x)))
@@ -715,19 +764,51 @@ def softplus(x) -> ag_np.ndarray:
     return ag_np.log1p(ag_np.exp(-ag_np.abs(x))) + ag_np.maximum(x, 0)
 
 
-def softplus_inv(x) -> ag_np.ndarray:
+################################################################################
+# Module Functions
+################################################################################
+
+def softplus_inv(x: ag_np.ndarray) -> ag_np.ndarray:
+    """Inverse softplus function.
+
+    Recovers input values from softplus activation function.
+
+    Parameters
+    ----------
+    x : ag_np.ndarray
+        Array-like with values transformed by softplus
+
+    Returns
+    -------
+    ag_np.ndarray
+        Inverse softplus returned values in same shape as input array
+    """
     # print('SOFTPLUS INVERSE')
     # print(x)
     # print(ag_np.log(ag_np.exp(x) - 1))
     return ag_np.log1p(-ag_np.exp(-x)) + x
 
 
-def constrain(*omega_params):
-    return list(map(softplus_inv, omega_params))
+def constrain(*omega_params) -> tuple[ag_np.array]:
+    """Helper function to constrain multiple variables with softplus.
+
+    Returns
+    -------
+    tuple[ag_np.array]
+        Transformed variables with softplus
+    """
+    return tuple(map(softplus_inv, omega_params))
 
 
-def constrain_inv(*params):
-    return list(map(softplus_inv, params))
+def constrain_inv(*params) -> tuple[ag_np.array]:
+    """Helper function to recover multiple variables with inverse softplus.
+
+    Returns
+    -------
+    tuple[ag_np.array]
+        Inverse transformed variables with softplus
+    """
+    return tuple(map(softplus_inv, params))
 
 
 def plot_model(model):
