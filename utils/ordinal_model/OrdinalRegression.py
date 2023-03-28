@@ -6,27 +6,29 @@ TODO
 ----
 * [Done] Write additional method for using softplus link function: f(x) = ln(1+e^x)
 * [Done] Include parameter on fit to show loss vs epochs
-* Include parameter on fit to show traceplots
+* [N/A] Include parameter on fit to show traceplots
 * [Done] Write plotting function for loss vs epochs
-* Write plotting function for traceplots
+* [N/A ]Write plotting function for traceplots
 * [Done] Remove scaling
     * Initialize weights accordingly
-* Confirm with Preetish/Hughes what exactly needs to be plotted for the traceplots
+* [Done] Confirm with Preetish/Hughes what exactly needs to be plotted for the traceplots
     * [Done] Preetish suggested decision boundaries
-* Vectorize the probability computation so that we do not have to loop--DONE
+* [Done] Vectorize the probability computation so that we do not have to loop
 * Develop a log_proba method so that we do not have to worry about over/underflow
-    * Need to discuss how to properly set up with Prof. Hughes
+    * [Done] Need to discuss how to properly set up with Prof. Hughes
+    * Use logsumexp or equivalent to compute log_proba
 * Test on multi-dimensional (3+) data
 * Test with kernel to improve separation boundaries
 
 FIXME
 -----
 * Optimize cannot train on variance
-    * Generate plot of loss at various variances by grid searching on variance
+    * [Done] Generate plot of loss at various variances by grid searching on variance
       once the rest of the parameters have been optimally found
-      (hope that this will illuminate why the params are going to nan)--DONE
-    * Alternate optimizing with constant variance and finding minimum loss variance
-      using trained parameters. Generate gif plot to show learning.--DONE
+      (hope that this will illuminate why the params are going to nan)
+    * [Done] Alternate optimizing with constant variance and finding minimum loss variance
+      using trained parameters. Generate gif plot to show learning.
+    * SOLUTION: freeze sigma/variance to 1 since model is over-parameterized
 """
 import pathlib
 
@@ -39,6 +41,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import autograd.numpy as ag_np
 from autograd import grad, value_and_grad
 import autograd.scipy.stats as ag_stats
+import autograd.scipy.special as ag_special
 # from autograd.scipy.stats import norm
 from scipy.optimize import minimize
 
@@ -56,7 +59,7 @@ class OrdinalRegression:
     """
 
     def __init__(self,
-                 noise_variance: float = None,
+                 noise_variance: float = 1,
                  C: float = 0,
                  save_loss: bool = False,
                  log_training: bool = False,
@@ -67,7 +70,8 @@ class OrdinalRegression:
         Parameters
         ----------
         noise_variance : float, optional
-            _description_, by default 1
+            Variance of gaussian noise that assume to contaminate latent 
+            function, by default 1
         C : float, optional
             Regularization strength of cutpoints
         save_loss : bool, optional
@@ -81,7 +85,6 @@ class OrdinalRegression:
 
         TODO
         ----
-        * Remove noise variance since this will be learnt by the model--Done
         """
         # Parameters
         self.w = None
@@ -128,7 +131,7 @@ class OrdinalRegression:
         y : ag_np.ndarray
             Ground truth ordinal labels
         fit_noise_variance : float
-            Train the model using a specific noise variance
+            Train the model using a specific noise variance if desired
 
         Returns
         -------
@@ -146,7 +149,7 @@ class OrdinalRegression:
 
         FIXME
         -----
-        * Troubleshoot why constraining sigma leads to NaNs
+        * Troubleshoot why constraining sigma leads to NaNs--DONE
         * Rewrite in TensorFlow
         """
         # Relevant parameters
@@ -194,6 +197,7 @@ class OrdinalRegression:
         init_params = ag_np.hstack((init_r, init_b1, init_epsilons, init_w))
 
         # Log
+        # TODO: consider appending logs to list and printing all at once
         if self.log_file is not None:
             with open(self.log_file, 'a') as f:
                 if fit_noise_variance is not None:
@@ -331,7 +335,7 @@ class OrdinalRegression:
 
         Parameters
         ----------
-        X_transformed : _type_
+        X_transformed : ag_np.ndarray
             Transformed feature data
 
         Returns
@@ -355,9 +359,9 @@ class OrdinalRegression:
             Predicted ordinal labels.
         """
         X_transformed = self._transform(X)
-        best_proba_NR = self.proba(
+        best_log_proba_NR = self.log_proba(
             self.noise_variance, self.w, self.b, X_transformed)
-        y_predict = ag_np.argmax(best_proba_NR, axis=1)
+        y_predict = ag_np.argmax(best_log_proba_NR, axis=1)
         return y_predict
 
     def log_likelihood(self,
@@ -394,6 +398,7 @@ class OrdinalRegression:
         # proba_NR = self.log_proba(variance, w, b, X)
         # log_likelihood_N = ag_np.log(proba_NR[ag_np.arange(N), y] + 1e-7)
         log_proba_NR = self.log_proba(variance, w, b, X)
+        # log_proba_NR = ag_np.log(self.proba(variance, w, b, X))
         log_likelihood_N = log_proba_NR[ag_np.arange(N), y]
         # print('NEG LOG LIKELIHOOD:')
         # if self.save_loss == True:
@@ -430,45 +435,44 @@ class OrdinalRegression:
 
         TODO
         ----
-        * Ask for help on how to compute stable log_proba
+        * Ask for help on how to compute stable log_proba--DONE
         """
-        # Initialize values
-        # print('SIGMA')
-        # print(sigma)
-        # sigma += 1e-3
+        # Include pos/neg Inf to cutpoints
         b = ag_np.hstack((-ag_np.inf, b, ag_np.inf))
-        # print(b)
+
+        # Dimensions
         N = X.shape[0]
         R = b.size - 1
-        z_matrix_NR_1 = ag_np.zeros((N, 0))
-        z_matrix_NR_2 = ag_np.zeros((N, 0))
+
+        # Compute latent function output and tile to create NR shape
         f_x_N = X @ w
         f_x_NR = ag_np.tile(f_x_N[:, ag_np.newaxis], (1, R))
 
-        # variance = ag_np.array(variance)
-        # print('VARIANCE:')
-        # print(variance)
-        # sigma = ag_np.sqrt(ag_np.repeat(variance, N))
-
+        # Isolate cutpoints for z_1 and z_2 calcs
         b_1 = b[1:]
         b_2 = b[:-1]
 
+        # Compute z_1 and z_2 for each data feature
         z_matrix_NR_1 = (b_1 - f_x_NR) / ag_np.sqrt(variance)
         z_matrix_NR_2 = (b_2 - f_x_NR) / ag_np.sqrt(variance)
 
-        cdf_NR_1 = ag_stats.norm.cdf(z_matrix_NR_1)
-        cdf_NR_2 = ag_stats.norm.cdf(z_matrix_NR_2)
-        # log_cdf_NR_1 = ag_stats.norm.logcdf(z_matrix_NR_1)
-        # log_cdf_NR_2 = ag_stats.norm.logcdf(z_matrix_NR_2)
+        # Compute logcdf
+        # cdf_NR_1 = ag_stats.norm.cdf(z_matrix_NR_1)
+        # cdf_NR_2 = ag_stats.norm.cdf(z_matrix_NR_2)
+        log_cdf_NR_1 = ag_stats.norm.logcdf(z_matrix_NR_1)
+        log_cdf_NR_2 = ag_stats.norm.logcdf(z_matrix_NR_2)
 
-        # log_proba_NR = log_cdf_NR_1 + \
-        #     ag_np.log1p(-ag_np.exp(log_cdf_NR_2-log_cdf_NR_1))
+        log_proba_NR = ag_special.logsumexp(
+            a=ag_np.stack((log_cdf_NR_1, log_cdf_NR_2), axis=-1),
+            axis=2,
+            b=ag_np.array([1, -1]),
+        )
         # log_proba_NR = ag_np.log(
         #     ag_np.exp(log_cdf_NR_1) - ag_np.exp(log_cdf_NR_1))
 
-        proba_NR = cdf_NR_1 - cdf_NR_2
+        # log_proba_NR = cdf_NR_1 - cdf_NR_2
 
-        return ag_np.log(proba_NR + 1e-7)
+        return log_proba_NR
 
     def proba(self,
               variance: float,
@@ -500,50 +504,43 @@ class OrdinalRegression:
         * Call log_proba() to compute probability values
         """
         # Initialize values
-        # print('SIGMA')
-        # print(sigma)
-        # sigma += 1e-3
+        # Include pos/neg Inf to cutpoints
         b = ag_np.hstack((-ag_np.inf, b, ag_np.inf))
-        # print(b)
+
+        # Dimensions
         N = X.shape[0]
         R = b.size - 1
-        z_matrix_NR_1 = ag_np.zeros((N, 0))
-        z_matrix_NR_2 = ag_np.zeros((N, 0))
-        f_x = X @ w
+
+        # Compute latent function output and tile to create NR shape
+        # z_matrix_NR_1 = ag_np.zeros((N, 0))
+        # z_matrix_NR_2 = ag_np.zeros((N, 0))
+        f_x_N = X @ w
+        f_x_NR = ag_np.tile(f_x_N[:, ag_np.newaxis], (1, R))
 
         # variance = ag_np.array(variance)
         # print('VARIANCE:')
         # print(variance)
         # sigma = ag_np.sqrt(ag_np.repeat(variance, N))
 
-        # Iterate through possible ordinal outcomes
-        for j in range(R):
-            # Note: Indexing is not supported
-            # z_matrix_NR2[:, bi, 0] = (
-            #     self.cut_points[bi+1] - (X @ w)
-            # ) / ag_np.sqrt(self.noise_variance)
-            # z_matrix_NR2[:, bi, 1] = (
-            #     self.cut_points[bi] - (X @ w)
-            # ) / ag_np.sqrt(self.noise_variance)
-            z_bj_1 = ((b[j+1] - (f_x)) /
-                      ag_np.sqrt(variance))[:, ag_np.newaxis]
-            z_bj_2 = ((b[j] - (f_x)) / ag_np.sqrt(variance))[:, ag_np.newaxis]
-            # if z_matrix_NR_1 is None and z_matrix_NR_2 is None:
-            #     z_matrix_NR_1 = z_bi_1
-            #     z_matrix_NR_2 = z_bi_2
-            # else:
-            # print('SHAPES')
-            # print(z_matrix_NR_1.shape)
-            # print(z_bj_1.shape)
-            # print(z_matrix_NR_2.shape)
-            # print(z_bj_2.shape)
-            z_matrix_NR_1 = ag_np.hstack((z_matrix_NR_1, z_bj_1))
-            z_matrix_NR_2 = ag_np.hstack((z_matrix_NR_2, z_bj_2))
-        z_matrix_NR2 = ag_np.concatenate(
-            (z_matrix_NR_1[:, :, ag_np.newaxis], z_matrix_NR_2[:, :, ag_np.newaxis]), axis=2)
-        gaussian_cdf_NR2 = ag_stats.norm.cdf(z_matrix_NR2)
-        proba_NR = gaussian_cdf_NR2[:, :, 0] - gaussian_cdf_NR2[:, :, 1]
-        return proba_NR
+        b_1 = b[1:]
+        b_2 = b[:-1]
+
+        z_matrix_NR_1 = (b_1 - f_x_NR) / ag_np.sqrt(variance)
+        z_matrix_NR_2 = (b_2 - f_x_NR) / ag_np.sqrt(variance)
+
+        cdf_NR_1 = ag_stats.norm.cdf(z_matrix_NR_1)
+        cdf_NR_2 = ag_stats.norm.cdf(z_matrix_NR_2)
+        # log_cdf_NR_1 = ag_stats.norm.logcdf(z_matrix_NR_1)
+        # log_cdf_NR_2 = ag_stats.norm.logcdf(z_matrix_NR_2)
+
+        # log_proba_NR = log_cdf_NR_1 + \
+        #     ag_np.log1p(-ag_np.exp(log_cdf_NR_2-log_cdf_NR_1))
+        # log_proba_NR = ag_np.log(
+        #     ag_np.exp(log_cdf_NR_1) - ag_np.exp(log_cdf_NR_1))
+
+        proba_NR = cdf_NR_1 - cdf_NR_2
+
+        return proba_NR + 1e-7
 
     def predict_proba(self, X: ag_np.ndarray) -> ag_np.ndarray:
         """Obtain the probabilities of each ordinal outcome given the best
@@ -561,6 +558,23 @@ class OrdinalRegression:
         """
         X_transformed = self._transform(X)
         return self.proba(self.noise_variance, self.w, self.b, X_transformed)
+
+    def predict_log_proba(self, X: ag_np.ndarray) -> ag_np.ndarray:
+        """Obtain the log-probabilities of each ordinal outcome given the best
+        weights and cut-points.
+
+        Parameters
+        ----------
+        X : ag_np.ndarray
+            Raw feature data
+
+        Returns
+        -------
+        best_proba : ag_np.ndarray
+            _description_
+        """
+        X_transformed = self._transform(X)
+        return self.log_proba(self.noise_variance, self.w, self.b, X_transformed)
 
     def _plot_log_likelihood(self) -> None:
         """Helper method to plot the negative log-likelihood per sample over
@@ -674,13 +688,19 @@ class OrdinalRegression:
             f'Loss at various noise variances\nTrained variance = {self.noise_variance:.3f}')
         ax.grid(True)
 
-        filename = f'{self.noise_variance:.3f}_trained_variance.png'
+        filename = f'trained_variance.png'
         if iteration is not None:
             filename = f'{iteration:03d}_' + filename
-        plt.savefig(out_dir.joinpath(filename),
+        else:
+            filename = f'{self.noise_variance:.3f}_' + filename
+        plt.savefig(out_dir.joinpath('loss_variance', filename),
                     bbox_inches='tight', pad_inches=0)
         plt.close(fig)
         # plt.show()
+
+        # Decision Boundary
+        plot_model(self, export_path=out_dir.joinpath(
+            'decision_boundary', filename))
         return min_variance, min_loss
 
     def find_global_minimum_variance(self, iter=50) -> float:
@@ -702,22 +722,37 @@ class OrdinalRegression:
             Best variances obtained from algorithm search
         """
         # Set up output directory
-        out_dir = self.directory.joinpath('loss_variance_frames')
+        out_dir = self.directory.joinpath('frames')
         out_dir.mkdir(exist_ok=False)
+        out_dir.joinpath('loss_variance').mkdir(exist_ok=False)
+        out_dir.joinpath('decision_boundary').mkdir(exist_ok=False)
 
         # Alternate grid searching and training
         for i in range(iter):
             min_variance, _ = self.grid_search_variance(
                 out_dir=out_dir, iteration=i)
             self.fit(self.X, self.y, fit_noise_variance=min_variance)
+            print(f'CUTPOINTS after iteration {i}:')
+            print(self.b)
 
         # Generate animation to show loss curve and minimum changes
         frames = []
-        for path in sorted(out_dir.glob('*.png'), reverse=False):
+        for path in sorted(out_dir.joinpath('loss_variance').glob('*.png'), reverse=False):
             if path.is_file() and path.suffix == '.png':
                 image = imageio.imread(path)
                 frames.append(image)
         imageio.mimsave(out_dir.joinpath('loss_variance.gif'),  # output gif
+                        frames,          # array of input frames
+                        fps=5,           # optional: frames per second
+                        )
+
+        # Decision Boundary Animation
+        frames = []
+        for path in sorted(out_dir.joinpath('decision_boundary').glob('*.png'), reverse=False):
+            if path.is_file() and path.suffix == '.png':
+                image = imageio.imread(path)
+                frames.append(image)
+        imageio.mimsave(out_dir.joinpath('decision_boundary.gif'),  # output gif
                         frames,          # array of input frames
                         fps=5,           # optional: frames per second
                         )
@@ -811,7 +846,7 @@ def constrain_inv(*params) -> tuple[ag_np.array]:
     return tuple(map(softplus_inv, params))
 
 
-def plot_model(model):
+def plot_model(model, export_path=None):
     """Function to plot the decision boundaries given a model.
 
     Parameters
@@ -994,5 +1029,9 @@ def plot_model(model):
     # axs.legend(handles[::-1], labels[::-1],
     #            bbox_to_anchor=(1.04, 1), borderaxespad=0)
     # axs.legend()
-
-    plt.show()
+    if export_path is not None:
+        plt.savefig(export_path,
+                    bbox_inches='tight', pad_inches=0)
+        plt.close(f)
+    else:
+        plt.show()
