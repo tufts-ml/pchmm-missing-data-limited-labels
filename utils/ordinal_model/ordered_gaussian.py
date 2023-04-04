@@ -89,13 +89,14 @@ class OrderedGaussian(tfd.Distribution):
         self.loc = loc
         self.scale = scale
 
-        # super().__init__(
-        #     dtype=dtype,
-        #     reparameterization_type=reparameterization.NOT_REPARAMETERIZED,
-        #     validate_args=validate_args,
-        #     allow_nan_stats=allow_nan_stats,
-        #     parameters=parameters,
-        #     name=name)
+        super().__init__(
+            dtype=dtype,
+            reparameterization_type=tfd.NOT_REPARAMETERIZED,
+            validate_args=validate_args,
+            allow_nan_stats=allow_nan_stats,
+            parameters=parameters,
+            name=name
+        )
 
     # @classmethod
     # def _parameter_properties(cls, dtype, num_classes=None):

@@ -410,7 +410,7 @@ class OrdinalRegression:
                   variance: float,
                   w: ag_np.ndarray,
                   b: ag_np.ndarray,
-                  X: ag_np.ndarray
+                  X: ag_np.ndarray,
                   ) -> ag_np.ndarray:
         """Compute log-probabilities of each ordinal outcome given a set of weights
         and cut-points.
@@ -436,6 +436,24 @@ class OrdinalRegression:
         TODO
         ----
         * Ask for help on how to compute stable log_proba--DONE
+        * Broadcast the subtraction for the z values instead of tiling the latent function outputs
+        ```python
+        z_NRplus1 = (b - f_x_N[..., np.newaxis]) / ag_np.sqrt(variance)
+        log_cdf_NRplus1 = ag_stats.norm.logcdf(z_NRplus1)
+        log_proba_NR = ag_special.logsumexp(
+            a=ag_np.stack((log_cdf_NRplus1[..., 1:], log_cdf_NRplus1[..., :-1]), axis=-1),
+            axis=2,
+            b=ag_np.array([1, -1]),
+        )
+        ```
+
+        FIXME
+        -----
+        * Figure out why autograd/scipy is failing with the logsumexp()
+            * Try changing b to be same dimension as a
+            * Consider iterating and rebuilding array
+            * Try stacking outside logsumexp()
+            * Try running without b
         """
         # Include pos/neg Inf to cutpoints
         b = ag_np.hstack((-ag_np.inf, b, ag_np.inf))
