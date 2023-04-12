@@ -2,7 +2,7 @@
 """The ordered gaussian distribution class."""
 
 ################################################################################
-# distributions.py
+# Imports
 ################################################################################
 
 # import tensorflow.keras.backend as K
@@ -10,7 +10,9 @@ from tensorflow_probability import distributions as tfd
 from tensorflow_probability import bijectors as tfb
 from tensorflow_probability.python.distributions import kullback_leibler
 from tensorflow_probability import layers as tfpl
-from tensorflow_probability import math
+from tensorflow_probability import math as tfp_math
+from tensorflow_probability import util
+from tensorflow_probability.python.internal import dtype_util, tensor_util, prefer_static
 import tensorflow as tf
 import warnings
 # from ..util.util import as_tuple
@@ -19,26 +21,11 @@ import numpy as np
 # from ..third_party.convar import ConvolutionalAutoregressiveNetwork
 import tensorflow as tf
 
-################################################################################
-# ordered_logistic.py
-################################################################################
+from tensorflow_probability.python.distributions.ordered_logistic import _broadcast_cat_event_and_params
 
-# import numpy as np
-# import tensorflow.compat.v2 as tf
-
-# from tensorflow_probability.python.bijectors import ascending
-# from tensorflow_probability.python.distributions import categorical
-# from tensorflow_probability.python.distributions import distribution
-# from tensorflow_probability.python.distributions import kullback_leibler
-# from tensorflow_probability.python.internal import assert_util
-# from tensorflow_probability.python.internal import distribution_util
-# from tensorflow_probability.python.internal import dtype_util
-# from tensorflow_probability.python.internal import parameter_properties
-# from tensorflow_probability.python.internal import prefer_static as ps
-# from tensorflow_probability.python.internal import reparameterization
-# from tensorflow_probability.python.internal import tensor_util
-# from tensorflow_probability.python.internal import tensorshape_util
-# from tensorflow_probability.python.math import generic
+################################################################################
+# Class
+################################################################################
 
 
 class OrderedGaussian(tfd.Distribution):
@@ -47,7 +34,7 @@ class OrderedGaussian(tfd.Distribution):
         self,
         cutpoints,
         loc,
-        scale=1,
+        scale=1.,
         dtype=tf.int32,
         validate_args=False,
         allow_nan_stats=True,
@@ -67,7 +54,7 @@ class OrderedGaussian(tfd.Distribution):
             `batch_shape` being `tf.shape(loc[..., tf.newaxis] -
             cutpoints)[:-1]` assuming the subtraction is a valid broadcasting
             operation.
-          scale: TODO (default: 1)
+          scale: Desired scale (stdev) of the gaussian noise applied on the latent function (default: 1)
           dtype: The type of the event samples (default: int32).
           validate_args: Python `bool`, default `False`. When `True` distribution
             parameters are checked for validity despite possibly degrading runtime
@@ -84,95 +71,142 @@ class OrderedGaussian(tfd.Distribution):
         """
         parameters = dict(locals())
 
-        # Ordinal Gaussian Distributions specific parameters
-        self.cutpoints = cutpoints
-        self.loc = loc
-        self.scale = scale
+        with tf.name_scope(name) as name:
 
-        super().__init__(
-            dtype=dtype,
-            reparameterization_type=tfd.NOT_REPARAMETERIZED,
-            validate_args=validate_args,
-            allow_nan_stats=allow_nan_stats,
-            parameters=parameters,
-            name=name
-        )
+            # Ordinal Gaussian Distributions specific parameters
+            float_dtype = dtype_util.common_dtype(
+                [cutpoints, loc, scale],
+                dtype_hint=tf.float32,
+            )
+            self._cutpoints = tensor_util.convert_nonref_to_tensor(
+                cutpoints, dtype_hint=float_dtype, name='cutpoints')
+            self._loc = tensor_util.convert_nonref_to_tensor(
+                loc, dtype_hint=float_dtype, name='loc')
+            self._scale = tensor_util.convert_nonref_to_tensor(
+                scale, dtype_hint=float_dtype, name='scale')
+
+            super().__init__(
+                dtype=dtype,
+                reparameterization_type=tfd.NOT_REPARAMETERIZED,
+                validate_args=validate_args,
+                allow_nan_stats=allow_nan_stats,
+                parameters=parameters,
+                name=name
+            )
 
     # @classmethod
-    # def _parameter_properties(cls, dtype, num_classes=None):
+    # def _parameter_properties(self, dtype, num_classes=None):
     #     # pylint: disable=g-long-lambda
     #     return dict(
-    #         cutpoints=parameter_properties.ParameterProperties(
+    #         cutpoints=util.ParameterProperties(
     #             event_ndims=1,
-    #             shape_fn=lambda sample_shape: ps.concat(
+    #             shape_fn=lambda sample_shape: tf.concat(
     #                 [sample_shape, [num_classes]], axis=0),
-    #             default_constraining_bijector_fn=lambda: ascending.Ascending()),  # pylint:disable=unnecessary-lambda
-    #         loc=parameter_properties.ParameterProperties())
+    #             default_constraining_bijector_fn=lambda: tfb.ascending.Ascending()),  # pylint:disable=unnecessary-lambda
+    #         loc=util.ParameterProperties(),
+    #         scale=util.ParameterProperties(),
+    #     )
     #     # pylint: enable=g-long-lambda
 
-    # @property
-    # def cutpoints(self):
-    #     """Input argument `cutpoints`."""
-    #     return self._cutpoints
+    @classmethod
+    def _params_event_ndims(cls):
+        return dict(cutpoints=1, loc=0)
 
-    # @property
-    # def loc(self):
-    #     """Input argument `loc`."""
-    #     return self._loc
+    @staticmethod
+    def _param_shapes(sample_shape):
+        return dict(
+            zip(('loc', 'scale'),
+                ([tf.convert_to_tensor(sample_shape, dtype=tf.int32)] * 2)))
 
-    def log_probs(self):
+    @property
+    def cutpoints(self):
+        """Input argument `cutpoints`."""
+        return self._cutpoints
+
+    @property
+    def loc(self):
+        """Input argument `loc`."""
+        return self._loc
+
+    @property
+    def scale(self):
+        """Input argument `loc`."""
+        return self._scale
+
+    def ordinal_log_probs(self):
         """Log probabilities for the `K+1` ordered categories."""
         norm = tfd.Normal(loc=0, scale=self.scale)
-        log_cdfs = norm.log_cdf(
-            self._augmented_cutpoints() - self.loc[..., tf.newaxis]
-        )
-        return math.log_sub_exp(log_cdfs[..., :-1], log_cdfs[..., 1:])
+        z_values = (self._augmented_cutpoints() -
+                    self.loc[..., tf.newaxis]) / self.scale
+        log_cdfs = norm.log_cdf(z_values)
+        return tfp_math.log_sub_exp(log_cdfs[..., :-1], log_cdfs[..., 1:])
 
-    def probs(self):
+    def ordinal_probs(self):
         """Probabilities for the `K+1` ordered categories."""
-        return tf.math.exp(self.log_probs())
+        return tf.math.exp(self.ordinal_log_probs())
+
+    def _log_prob(self, values):
+        """Associated log probabilities of true output labels.
+
+        Parameters
+        ----------
+        values : _type_
+            Values of desired labels to predict
+        """
+        num_categories = self._num_categories()
+        x_safe = tf.where((values > num_categories - 1)
+                          | (values < 0), 0, values)
+        log_probs = tfd.categorical.Categorical(
+            logits=self.ordinal_log_probs()).log_prob(x_safe)
+        inf = tf.constant(np.inf, dtype=log_probs.dtype)
+        return tf.where((values > num_categories - 1) | (values < 0), -inf, log_probs)
 
     def _augmented_cutpoints(self):
         cutpoints = tf.convert_to_tensor(self.cutpoints)
-        inf = tf.constant(np.inf, dtype=cutpoints.dtype)
+        inf = tf.fill(
+            cutpoints[..., :1].shape,
+            tf.constant(np.inf, dtype=cutpoints.dtype))
         return tf.concat([-inf, cutpoints, inf], axis=-1)
 
     def _num_categories(self):
         return tf.shape(self.cutpoints, out_type=self.dtype)[-1] + 1
 
-#     def _sample_n(self, n, seed=None):
-#         return categorical.Categorical(
-#             logits=self.categorical_log_probs()).sample(n, seed)
+    def _sample_n(self, n, seed=None):
+        return tfd.categorical.Categorical(
+            logits=self.ordinal_log_probs()).sample(n, seed)
 
-#     def _event_shape_tensor(self):
-#         return tf.constant([], dtype=tf.int32)
+    def _batch_shape_tensor(self, cutpoints=None, loc=None):
+        cutpoints = self.cutpoints if cutpoints is None else cutpoints
+        loc = self.loc if loc is None else loc
+        return prefer_static.broadcast_shape(
+            prefer_static.shape(cutpoints)[:-1],
+            prefer_static.shape(loc))
 
-#     def _event_shape(self):
-#         return tf.TensorShape([])
+    def _batch_shape(self):
+        return tf.broadcast_static_shape(
+            self.loc.shape, self.cutpoints.shape[:-1])
 
-#     def _log_prob(self, x):
-#         num_categories = self._num_categories()
-#         x_safe = tf.where((x > num_categories - 1) | (x < 0), 0, x)
-#         log_probs = categorical.Categorical(
-#             logits=self.categorical_log_probs()).log_prob(x_safe)
-#         neg_inf = dtype_util.as_numpy_dtype(log_probs.dtype)(-np.inf)
-#         return tf.where((x > num_categories - 1) | (x < 0), neg_inf, log_probs)
+    def _event_shape_tensor(self):
+        return tf.constant([], dtype=tf.int32)
 
-#     def _cdf(self, x):
-#         return categorical.Categorical(logits=self.categorical_log_probs()).cdf(x)
+    def _event_shape(self):
+        return tf.TensorShape([])
 
-#     def _entropy(self):
-#         return categorical.Categorical(
-#             logits=self.categorical_log_probs()).entropy()
+    # def _cdf(self, x):
+    #     return tfd.categorical.Categorical(logits=self.ordinal_log_probs()).cdf(x)
 
-#     def _mode(self):
-#         log_probs = self.categorical_log_probs()
-#         mode = tf.argmax(log_probs, axis=-1, output_type=self.dtype)
-#         tensorshape_util.set_shape(mode, log_probs.shape[:-1])
-#         return mode
+    # def _entropy(self):
+    #     return tfd.categorical.Categorical(
+    #         logits=self.ordinal_log_probs()).entropy()
 
-#     def _default_event_space_bijector(self):
-#         return
+    # def _mode(self):
+    #     log_probs = self.ordinal_log_probs()
+    #     mode = tf.argmax(log_probs, axis=-1, output_type=self.dtype)
+    #     tensorshape_util.set_shape(mode, log_probs.shape[:-1])
+    #     return mode
+
+    def _default_event_space_bijector(self):
+        return
 
 #     def _parameter_control_dependencies(self, is_init):
 #         assertions = []
@@ -248,3 +282,88 @@ class OrderedGaussian(tfd.Distribution):
 #             tf.math.multiply_no_nan(
 #                 a_log_probs - b_log_probs, tf.math.exp(a_log_probs)),
 #             axis=-1)
+
+class OrderedGaussian2(tfd.OrderedLogistic):
+    def __init__(
+        self,
+        cutpoints,
+        loc,
+        scale=1.,
+        dtype=tf.int32,
+        validate_args=False,
+        allow_nan_stats=True,
+        name='OrderedGuassian',
+    ):
+        with tf.name_scope(name) as name:
+
+            self._scale = tensor_util.convert_nonref_to_tensor(
+                scale, dtype_hint=tf.float32, name='scale')
+
+            super().__init__(
+                cutpoints=cutpoints,
+                loc=loc,
+                dtype=dtype,
+                validate_args=validate_args,
+                allow_nan_stats=allow_nan_stats,
+                name=name
+            )
+
+    @property
+    def scale(self):
+        """Input argument `loc`."""
+        return self._scale
+
+    def categorical_log_probs(self):
+        """Log probabilities for the `K+1` ordered categories."""
+        norm = tfd.Normal(loc=0, scale=self.scale)
+        z_values = (self._augmented_cutpoints() -
+                    self.loc[..., tf.newaxis]) / self.scale
+        log_cdfs = norm.log_cdf(z_values)
+        tf.print(log_cdfs)
+        tf.print(tf.math.log_sigmoid(z_values))
+        return tfp_math.log_sub_exp(log_cdfs[..., :-1], log_cdfs[..., 1:])
+
+    def _log_prob(self, values):
+        """Associated log probabilities of true output labels.
+
+        Parameters
+        ----------
+        values : _type_
+            Values of desired labels to predict
+        """
+        num_categories = self._num_categories()
+        x_safe = tf.where((values > num_categories - 1)
+                          | (values < 0), 0, values)
+        log_probs = tfd.categorical.Categorical(
+            logits=self.categorical_log_probs()).log_prob(x_safe)
+        inf = tf.constant(np.inf, dtype=log_probs.dtype)
+        return tf.where((values > num_categories - 1) | (values < 0), -inf, log_probs)
+
+    # def _log_prob(self, x):
+    #     # TODO(b/149334734): Consider using QuantizedDistribution for the log_prob
+    #     # computation for better precision.
+    #     num_categories = self._num_categories()
+    #     x, augmented_log_survival = _broadcast_cat_event_and_params(
+    #         event=x,
+    #         params=tfd.Normal(loc=0, scale=self.scale).log_cdf(
+    #             self.loc[..., tf.newaxis] - self._augmented_cutpoints()),
+    #         base_dtype=dtype_util.base_dtype(self.dtype))
+    #     x_flat = tf.reshape(x, [-1, 1])
+    #     augmented_log_survival_flat = tf.reshape(
+    #         augmented_log_survival, [-1, num_categories + 1])
+    #     log_survival_flat_xm1 = tf.gather(
+    #         params=augmented_log_survival_flat,
+    #         indices=tf.clip_by_value(x_flat, 0, num_categories),
+    #         batch_dims=1)
+    #     log_survival_flat_x = tf.gather(
+    #         params=augmented_log_survival_flat,
+    #         indices=tf.clip_by_value(x_flat + 1, 0, num_categories),
+    #         batch_dims=1)
+    #     log_prob_flat = tfp_math.log_sub_exp(
+    #         log_survival_flat_xm1, log_survival_flat_x)
+    #     # Deal with case where both survival probabilities are -inf, which gives
+    #     # `log_prob_flat = nan` when it should be -inf.
+    #     minus_inf = tf.constant(-np.inf, dtype=log_prob_flat.dtype)
+    #     log_prob_flat = tf.where(
+    #         x_flat > num_categories - 1, minus_inf, log_prob_flat)
+    #     return tf.reshape(log_prob_flat, shape=tf.shape(x))
