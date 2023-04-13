@@ -16,7 +16,24 @@ class OrdinalRegression:
         if random_state is not None:
             tf.random.set_seed(random_state)
 
-    def fit(self, X, y, use_gradient_tape=False, epochs=200, learning_rate=1e-3):
+    def fit(self, X, y, use_gradient_tape=False, epochs=200, learning_rate=1e-3, dist='og'):
+        """Fit the data to an orderinal model predictor using TensorFlow.
+
+        Parameters
+        ----------
+        X : _type_
+            _description_
+        y : _type_
+            _description_
+        use_gradient_tape : bool, optional
+            Whether to optimize using gradient tape (or automatically), by default False
+        epochs : int, optional
+            Number of desired epochs, by default 200
+        learning_rate : _type_, optional
+            Learning rate, by default 1e-3
+        dist : str, optional
+            Type of distribution desired to be used in distribution layer, by default 'og'
+        """
         # Training Set
         self.X = X
         self.y = y
@@ -28,16 +45,30 @@ class OrdinalRegression:
         # init = tf.sort(tf.random.uniform(shape=[R-1]))
         init_cutpoints = tf.range(R-1, dtype=np.float32) / (R-2)
         cutpoints = tf.Variable(initial_value=init_cutpoints, trainable=True)
-        scale = tf.Variable(initial_value=5.0,
-                            trainable=True, dtype=tf.float32)
+        # scale = tf.Variable(initial_value=1.0,
+        #                     trainable=True, dtype=tf.float32)
 
         # Set up model
-        self.model = tf.keras.Sequential([
-            tf.keras.layers.Dense(1),
-            tfp.layers.DistributionLambda(
-                lambda t: OrderedGaussian2(loc=t, cutpoints=cutpoints, scale=scale)),
-        ])
+        if dist == 'og':
+            self.model = tf.keras.Sequential([
+                tf.keras.layers.Dense(1),
+                tfp.layers.DistributionLambda(
+                    lambda t: OrderedGaussian(loc=t, cutpoints=cutpoints)),
+            ])
+        elif dist == 'og2':
+            self.model = tf.keras.Sequential([
+                tf.keras.layers.Dense(1),
+                tfp.layers.DistributionLambda(
+                    lambda t: OrderedGaussian2(loc=t, cutpoints=cutpoints)),
+            ])
+        elif dist == 'ol':
+            self.model = tf.keras.Sequential([
+                tf.keras.layers.Dense(1),
+                tfp.layers.DistributionLambda(
+                    lambda t: tfp.distributions.OrderedLogistic(loc=t, cutpoints=cutpoints)),
+            ])
 
+        # Optimization
         if use_gradient_tape:
             self.losses = self.optimize(
                 X, y, epochs=epochs, learning_rate=learning_rate)
@@ -51,6 +82,24 @@ class OrdinalRegression:
                            for epoch_loss in history.history['loss']]
 
     def optimize(self, X, y, epochs=200, learning_rate=1e-3):
+        """Optimize the loss function manually using TensorFlow's gradient tape.
+
+        Parameters
+        ----------
+        X : _type_
+            _description_
+        y : _type_
+            _description_
+        epochs : int, optional
+            _description_, by default 200
+        learning_rate : _type_, optional
+            _description_, by default 1e-3
+
+        Returns
+        -------
+        losses
+            List of lists of losses by epoch 
+        """
         # Instantiate an optimizer.
         optimizer = tf.keras.optimizers.SGD(learning_rate=learning_rate)
 
@@ -108,9 +157,11 @@ class OrdinalRegression:
         return losses
 
     def predict(self, X):
+        """Predict the ordinal outcomes using the fitted model."""
         return self.model.predict(X)
 
     def plot_losses(self, flatten_epochs=False):
+        """Visualize the loss plot."""
         if flatten_epochs:
             losses = [[num for sublist in self.losses for num in sublist]]
         else:
@@ -131,27 +182,13 @@ class OrdinalRegression:
         fig.subplots_adjust(top=0.85)
         fig.show()
 
-    # def loss_function(self, y_true, y_pred):
-    #     """_summary_
-
-    #     Parameters
-    #     ----------
-    #     y_true : _type_
-    #         _description_
-    #     y_pred : _type_
-    #         _description_
-    #     boundaries : _type_
-    #         _description_
-
-    #     FIXME
-    #     -----
-    #     * How on earth do I define the loss function?
-    #     """
-    #     dist = OrderedGaussian(loc=y_pred, cutpoints=self.cutpoints)
-    #     return -tf.reduce_sum(dist.log_prob(y_true))
+################################################################################
+# Loss function (negative log likelihood)
+################################################################################
 
 
 class OrdinalLoss(tf.keras.losses.Loss):
+    """Ordinal Loss class"""
     def __init__(self, reduction=tf.keras.losses.Reduction.AUTO, name='ordinal_loss'):
         super().__init__(reduction=reduction, name=name)
 

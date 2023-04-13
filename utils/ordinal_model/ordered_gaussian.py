@@ -319,51 +319,59 @@ class OrderedGaussian2(tfd.OrderedLogistic):
         z_values = (self._augmented_cutpoints() -
                     self.loc[..., tf.newaxis]) / self.scale
         log_cdfs = norm.log_cdf(z_values)
-        tf.print(log_cdfs)
-        tf.print(tf.math.log_sigmoid(z_values))
+        # log_cdfs = norm.log_cdf(z_values)
         return tfp_math.log_sub_exp(log_cdfs[..., :-1], log_cdfs[..., 1:])
 
-    def _log_prob(self, values):
-        """Associated log probabilities of true output labels.
+    # def _log_prob(self, values):
+    #     """Associated log probabilities of true output labels.
 
-        Parameters
-        ----------
-        values : _type_
-            Values of desired labels to predict
-        """
-        num_categories = self._num_categories()
-        x_safe = tf.where((values > num_categories - 1)
-                          | (values < 0), 0, values)
-        log_probs = tfd.categorical.Categorical(
-            logits=self.categorical_log_probs()).log_prob(x_safe)
-        inf = tf.constant(np.inf, dtype=log_probs.dtype)
-        return tf.where((values > num_categories - 1) | (values < 0), -inf, log_probs)
-
-    # def _log_prob(self, x):
-    #     # TODO(b/149334734): Consider using QuantizedDistribution for the log_prob
-    #     # computation for better precision.
+    #     Parameters
+    #     ----------
+    #     values : _type_
+    #         Values of desired labels to predict
+    #     """
     #     num_categories = self._num_categories()
-    #     x, augmented_log_survival = _broadcast_cat_event_and_params(
-    #         event=x,
-    #         params=tfd.Normal(loc=0, scale=self.scale).log_cdf(
-    #             self.loc[..., tf.newaxis] - self._augmented_cutpoints()),
-    #         base_dtype=dtype_util.base_dtype(self.dtype))
-    #     x_flat = tf.reshape(x, [-1, 1])
-    #     augmented_log_survival_flat = tf.reshape(
-    #         augmented_log_survival, [-1, num_categories + 1])
-    #     log_survival_flat_xm1 = tf.gather(
-    #         params=augmented_log_survival_flat,
-    #         indices=tf.clip_by_value(x_flat, 0, num_categories),
-    #         batch_dims=1)
-    #     log_survival_flat_x = tf.gather(
-    #         params=augmented_log_survival_flat,
-    #         indices=tf.clip_by_value(x_flat + 1, 0, num_categories),
-    #         batch_dims=1)
-    #     log_prob_flat = tfp_math.log_sub_exp(
-    #         log_survival_flat_xm1, log_survival_flat_x)
-    #     # Deal with case where both survival probabilities are -inf, which gives
-    #     # `log_prob_flat = nan` when it should be -inf.
-    #     minus_inf = tf.constant(-np.inf, dtype=log_prob_flat.dtype)
-    #     log_prob_flat = tf.where(
-    #         x_flat > num_categories - 1, minus_inf, log_prob_flat)
-    #     return tf.reshape(log_prob_flat, shape=tf.shape(x))
+    #     x_safe = tf.where((values > num_categories - 1)
+    #                       | (values < 0), 0, values)
+    #     log_probs = tfd.categorical.Categorical(
+    #         logits=self.categorical_log_probs()).log_prob(x_safe)
+    #     inf = tf.constant(np.inf, dtype=log_probs.dtype)
+    #     return tf.where((values > num_categories - 1) | (values < 0), -inf, log_probs)
+
+    def _log_prob(self, x):
+        # TODO(b/149334734): Consider using QuantizedDistribution for the log_prob
+        # computation for better precision.
+        num_categories = self._num_categories()
+
+        # from IPython import embed
+        # embed()
+        # tf.print(self.scale)
+        # tf.print(
+        #     tf.gather((self._augmented_cutpoints() - self.loc[..., tf.newaxis]) / self.scale,
+        #               0)
+        # )
+
+        x, augmented_log_survival = _broadcast_cat_event_and_params(
+            event=x,
+            params=tfd.Normal(loc=0, scale=self.scale).log_cdf(
+                (self._augmented_cutpoints() - self.loc[..., tf.newaxis]) / self.scale),
+            base_dtype=dtype_util.base_dtype(self.dtype))
+        x_flat = tf.reshape(x, [-1, 1])
+        augmented_log_survival_flat = tf.reshape(
+            augmented_log_survival, [-1, num_categories + 1])
+        log_survival_flat_xm1 = tf.gather(
+            params=augmented_log_survival_flat,
+            indices=tf.clip_by_value(x_flat, 0, num_categories),
+            batch_dims=1)
+        log_survival_flat_x = tf.gather(
+            params=augmented_log_survival_flat,
+            indices=tf.clip_by_value(x_flat + 1, 0, num_categories),
+            batch_dims=1)
+        log_prob_flat = tfp_math.log_sub_exp(
+            log_survival_flat_xm1, log_survival_flat_x)
+        # Deal with case where both survival probabilities are -inf, which gives
+        # `log_prob_flat = nan` when it should be -inf.
+        minus_inf = tf.constant(-np.inf, dtype=log_prob_flat.dtype)
+        log_prob_flat = tf.where(
+            x_flat > num_categories - 1, minus_inf, log_prob_flat)
+        return tf.reshape(log_prob_flat, shape=tf.shape(x))
