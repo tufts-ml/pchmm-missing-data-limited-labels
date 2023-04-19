@@ -1,0 +1,11 @@
+{
+    "lr": [0.01, 0.001],
+    "seed" : [900],
+    "batch_size" : [128, 512, 1024],
+    "lamb" : [50, 100, 500, 1000, 5000],
+    "n_states" : [5],
+    "predictor_l2_penalty" : [0],
+    "init_strategy" : ["kmeans"],
+    "min_los" : [3, 7, 11],
+    "best_seed" : [2577]
+}
