@@ -397,8 +397,8 @@ class OrdinalRegression:
         # Log Likelihood
         # proba_NR = self.log_proba(variance, w, b, X)
         # log_likelihood_N = ag_np.log(proba_NR[ag_np.arange(N), y] + 1e-7)
-        log_proba_NR = self.log_proba(variance, w, b, X)
-        # log_proba_NR = ag_np.log(self.proba(variance, w, b, X))
+        # log_proba_NR = self.log_proba(variance, w, b, X)
+        log_proba_NR = ag_np.log(self.proba(variance, w, b, X))
         log_likelihood_N = log_proba_NR[ag_np.arange(N), y]
         # print('NEG LOG LIKELIHOOD:')
         # if self.save_loss == True:
