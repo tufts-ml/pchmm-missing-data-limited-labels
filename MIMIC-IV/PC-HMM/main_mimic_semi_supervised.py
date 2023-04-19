@@ -9,16 +9,14 @@ from sklearn.metrics import (roc_curve, accuracy_score, log_loss,
                              roc_auc_score, make_scorer, average_precision_score)
 from yattag import Doc
 import matplotlib.pyplot as plt
-# DEFAULT_PROJECT_REPO = os.path.sep.join(__file__.split(os.path.sep)[:-2])
-# PROJECT_REPO_DIR = os.path.abspath(
-#     os.environ.get('PROJECT_REPO_DIR', DEFAULT_PROJECT_REPO))
-PROJECT_REPO_DIR = os.path.abspath(os.path.join(__file__, '../../../'))
-sys.path.append(os.path.join(PROJECT_REPO_DIR, 'src', 'rnn'))
-sys.path.append(os.path.join(PROJECT_REPO_DIR, 'src', 'PC-VAE'))
+
+PROJECT_REPO_DIR = os.path.abspath('../utils')
+sys.path.append(PROJECT_REPO_DIR)
+sys.path.append(os.path.join(PROJECT_REPO_DIR, 'pcvae'))
 
 from dataset_loader import TidySequentialDataCSVLoader
-from feature_transformation import (parse_id_cols, parse_feature_cols)
-from utils import load_data_dict_json
+# from feature_transformation import (parse_id_cols, parse_feature_cols)
+# from utils import load_data_dict_json
 from joblib import dump
 
 import warnings
@@ -66,7 +64,6 @@ def save_loss_plots(model, save_file, data_dict):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='pchmm fitting')
-    parser.add_argument('--outcome_col_name', type=str, required=True)
     parser.add_argument('--train_np_files', type=str, required=True)
     parser.add_argument('--test_np_files', type=str, required=True)
 #     parser.add_argument('--data_dict_files', type=str, required=True)
@@ -100,12 +97,6 @@ if __name__ == '__main__':
     x_train_np_filename, y_train_np_filename = args.train_np_files.split(',')
     x_test_np_filename, y_test_np_filename = args.test_np_files.split(',')
     x_valid_np_filename, y_valid_np_filename = args.valid_np_files.split(',')
-#     x_dict, y_dict = args.data_dict_files.split(',')
-#     x_data_dict = load_data_dict_json(x_dict)
-    
-#     # get the id and feature columns
-#     id_cols = parse_id_cols(x_data_dict)
-#     feature_cols = parse_feature_cols(x_data_dict)
     
     
     X_train = np.load(x_train_np_filename)
@@ -116,6 +107,9 @@ if __name__ == '__main__':
     y_val = np.load(y_valid_np_filename)
     
     
+    from IPython import embed; embed()
+    
+    '''
     ts_feat_inds = [False, True, True, True, True, True, True, False, False, True, True, True, True]
     static_feat_inds = np.logical_not(ts_feat_inds)
     static_feat_idx = np.flatnonzero(static_feat_inds)
@@ -125,21 +119,13 @@ if __name__ == '__main__':
         X_train[:, 1:, feat_idx]=np.nan
         X_val[:, 1:, feat_idx]=np.nan
         X_test[:, 1:, feat_idx]=np.nan
+    '''
         
     N,T,F = X_train.shape
     
     
     print('number of data points : %d\nnumber of time points : %s\nnumber of features : %s\n'%(N,T,F))
     
-    
-#     for d in range(F):
-
-#         # zscore normalization
-#         den = 1#np.nanstd(X_train[:, :, d])
-
-#         X_train[:, :, d] = (X_train[:, :, d] - np.nanmean(X_train[:, :, d]))/den
-#         X_val[:, :, d] = (X_val[:, :, d] - np.nanmean(X_train[:, :, d]))/den
-#         X_test[:, :, d] = (X_test[:, :, d] - np.nanmean(X_train[:, :, d]))/den
     
     
     # mask labels in training set and validation set as per user provided %perc_labelled
@@ -317,7 +303,7 @@ if __name__ == '__main__':
     '''
     model.fit(data, 
               steps_per_epoch=steps_per_epoch, 
-              epochs=1500,#1000
+              epochs=500,#1000
               reduce_lr=False, 
               batch_size=args.batch_size, 
               lr=args.lr,
@@ -410,10 +396,14 @@ if __name__ == '__main__':
     perf_save_file = os.path.join(args.output_dir, 'final_perf_'+args.output_filename_prefix+'.csv')
     model_perf_df = pd.DataFrame([{'train_AUPRC' : train_auprc, 
                                    'valid_AUPRC' : valid_auprc, 
-                                   'test_AUPRC' : test_auprc}])
+                                   'test_AUPRC' : test_auprc,
+                                   'train_AUC' : train_roc_auc,
+                                   'valid AUC' : valid_roc_auc,
+                                   'test AUC' : test_roc_auc}])
     
     
     model_perf_df.to_csv(perf_save_file, index=False)
+    print('performance saved to %s'%perf_save_file)
     
     
 # if __name__ == '__main__':

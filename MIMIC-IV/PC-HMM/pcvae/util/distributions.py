@@ -10,6 +10,7 @@ from tensorflow.keras.layers import Lambda, Dense
 import numpy as np
 # from ..third_party.convar import ConvolutionalAutoregressiveNetwork
 import tensorflow as tf
+from tensorflow_probability.python.internal import prefer_static as ps
 
 '''
 Functions for computing between-distribution losses
@@ -141,6 +142,23 @@ class NormalWithMissing(tfd.Normal):
         return mask*probs
     
 
+    
+class OrderedLogistic(tfd.OrderedLogistic):
+    def __init__(self, cutpoints, loc):
+        tfd.OrderedLogistic.__init__(self, loc=loc, cutpoints=cutpoints)
+        from IPython import embed; embed()
+    
+    def _mean(self):
+        return self._mode()
+    
+    
+    @staticmethod
+    def _param_shapes(sample_shape):
+        return {'loc': tf.convert_to_tensor(sample_shape),
+#                 'cutpoints' : ps.concat([[sample_shape], [3]], axis=-1)
+                'cutpoints' : tf.convert_to_tensor(3)
+#                 'cutpoints': tf.convert_to_tensor(sample_shape, dtype=tf.int32)
+               }
     
 class FixedNormal(tfd.Normal):
     def __init__(self, loc):
@@ -688,7 +706,7 @@ def get_tfd_distribution(dist, components=1, aligned=False, **kwargs):
         return dist
     dist_dict = dict(MultivariateNormalTriL=MultivariateNormalTriL, MultivariateNormalDiag=MultivariateNormalDiag,
                      Categorical=Categorical, Multinomial=Multinomial, Bernoulli=Bernoulli, NoiseNormal=NoiseNormal, NoiseZCA=NoiseZCA,
-                     Normal=Normal, StandardNormal=StandardNormal, StudentT=StudentT, NoiseStudentT=NoiseStudentT, NormalTanH=NormalTanH, StudentTTanH=StudentTTanH, NormalWithMissing=NormalWithMissing,
+                     Normal=Normal, StandardNormal=StandardNormal, StudentT=StudentT, NoiseStudentT=NoiseStudentT, NormalTanH=NormalTanH, StudentTTanH=StudentTTanH, NormalWithMissing=NormalWithMissing, OrderedLogistic=OrderedLogistic,
                      ConstrainedMultivariateStudentT=ConstrainedMultivariateStudentT, ConstrainedMultivariateNormal=ConstrainedMultivariateNormal,
                      ConstrainedNormal=ConstrainedNormal, ConstrainedStudentT=ConstrainedStudentT, ConstrainedNormalMixtureWithUniform=ConstrainedNormalMixtureWithUniform)
     mixture_dist_dict = dict(GaussianMixture=GaussianMixture, GaussianMixtureDiag=GaussianMixtureDiag,
