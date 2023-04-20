@@ -79,6 +79,7 @@ class HMM(BaseVAE):
         preconstrained = True
         params, tensors = [], []
         for (param, shape) in output_shapes.items():
+
             params.append(param)
             if type(output) is dict:
                 tensor = output[param]
@@ -116,6 +117,7 @@ class HMM(BaseVAE):
         output_dist = self.to_distribution(x, self.predictor_dist, self.label_shape, self.predictor_network, True,
                                            sample=False, name='prediction')
         self._predictor = Model(inputs=input, outputs=output_dist, name='predictor')
+        from IPython import embed; embed()
         
         
     def build_hmm_model(self):

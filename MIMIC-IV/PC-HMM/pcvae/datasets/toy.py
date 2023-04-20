@@ -1,6 +1,6 @@
 from .base import dataset, input_dataset, quantized_dataset, classification_dataset, binary_classification_dataset, \
     binary_dataset, \
-    real_dataset, remote_dataset, tensorflow_dataset, uniform_dataset
+    real_dataset, remote_dataset, tensorflow_dataset, uniform_dataset, regression_dataset
 from sklearn.datasets import make_moons
 import requests
 import io
@@ -106,6 +106,20 @@ class custom_dataset(dataset, real_dataset, classification_dataset):
         self.data = dict(train=self._data_dict['train'], valid=self._data_dict['valid'], test=self._data_dict['test'])
         
 
+class custom_regression_dataset(dataset, real_dataset, regression_dataset):
+    def __init__(self, data_dict, **kwargs):
+        dataset.__init__(self, **kwargs)
+        self._name = 'custom'
+        self._noutputs = 1
+        self._labels = 'real'
+        self._data_dict = data_dict
+        self.use_rescale = False
+        self.rescale_images = False
+        self._shape = (1, self._data_dict['train'][0].shape[-2], self._data_dict['train'][0].shape[-1])
+        self.fix_order = True
+
+    def fetch_data(self, download_dir=None):
+        self.data = dict(train=self._data_dict['train'], valid=self._data_dict['valid'], test=self._data_dict['test'])
 
 class toy_line(dataset, real_dataset, classification_dataset):
     def __init__(self, seed=543, t_length=8, **kwargs):
