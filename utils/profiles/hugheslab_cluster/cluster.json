@@ -1,0 +1,11 @@
+{
+    "__default__" :
+    {
+        "time" : "12:00:00",
+        "cores" : "4",
+        "partition" : "hugheslab",
+        "priority" : "normal",
+        "memory" : "40G",
+        
+    }
+}

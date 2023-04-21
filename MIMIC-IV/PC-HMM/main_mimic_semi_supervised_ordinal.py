@@ -14,6 +14,7 @@ PROJECT_REPO_DIR = os.path.abspath('../utils')
 sys.path.append(PROJECT_REPO_DIR)
 sys.path.append(os.path.join(PROJECT_REPO_DIR, 'pcvae'))
 
+# sys.path.append('pcvae/util/')
 from dataset_loader import TidySequentialDataCSVLoader
 # from feature_transformation import (parse_id_cols, parse_feature_cols)
 # from utils import load_data_dict_json
@@ -35,6 +36,50 @@ from sklearn.linear_model import LogisticRegression
 import tensorflow as tf
 import numpy.ma as ma
 from sklearn.cluster import KMeans
+import tensorflow_probability as tfp
+from tensorflow.keras.optimizers import Adam
+
+class OrdinalLoss(tf.keras.losses.Loss):
+    """Ordinal Loss class"""
+    def __init__(self, reduction=tf.keras.losses.Reduction.AUTO, name='ordinal_loss'):
+        super().__init__(reduction=reduction, name=name)
+
+    def call(self, y_true, y_pred):
+        return -y_pred.log_prob(y_true)
+
+
+def compute_binary_classification_perf(y, y_pred_proba_NC):
+    # Get the predicted probabilities of los>=3 days
+    y_pred_proba_N3 = np.sum(y_pred_proba_NC[:, 1:], axis=1)
+    
+    # get the true labels for los>=3 days
+    y_N3 = (y>=1)*1
+    
+    # Get the predicted probabilities of los>=7 days
+    y_pred_proba_N7 = np.sum(y_pred_proba_NC[:, 2:], axis=1)
+    
+    # get the true labels for los>=7 days
+    y_N7 = (y>=2)*1
+    
+    # Get the predicted probabilities of los>=11 days
+    y_pred_proba_N11 = y_pred_proba_NC[:, 3]
+    
+    # get the true labels for los>=7 days
+    y_N11 = (y==3)*1
+    
+    labelled_inds = ~np.isnan(y)
+    auprc_3 = average_precision_score(y_N3[labelled_inds], y_pred_proba_N3[labelled_inds])
+    roc_auc_3 = roc_auc_score(y_N3[labelled_inds], y_pred_proba_N3[labelled_inds])
+    
+    auprc_7 = average_precision_score(y_N7[labelled_inds], y_pred_proba_N7[labelled_inds])
+    roc_auc_7 = roc_auc_score(y_N7[labelled_inds], y_pred_proba_N7[labelled_inds])
+    
+    auprc_11 = average_precision_score(y_N11[labelled_inds], y_pred_proba_N11[labelled_inds])
+    roc_auc_11 = roc_auc_score(y_N11[labelled_inds], y_pred_proba_N11[labelled_inds])
+    
+    
+    return y_N3, y_pred_proba_N3, auprc_3, roc_auc_3, y_N7, y_pred_proba_N7, auprc_7, roc_auc_7, y_N11, y_pred_proba_N11, auprc_11, roc_auc_11
+    
 
 # def standardize_data_for_pchmm(X_train, y_train, X_test, y_test):
 def convert_to_categorical(y):
@@ -118,7 +163,7 @@ if __name__ == '__main__':
         X_val[:, 1:, feat_idx]=np.nan
         X_test[:, 1:, feat_idx]=np.nan
     '''
-        
+    
     N,T,F = X_train.shape
     
     
@@ -223,9 +268,7 @@ if __name__ == '__main__':
         data.batch_size = args.batch_size    
     
     model.build(data) 
-    
-    from IPython import embed; embed()
-    
+        
     '''
     # set the regression coefficients of the model
     eta_weights = np.zeros((n_states, 2))  
@@ -278,7 +321,7 @@ if __name__ == '__main__':
     # temporarily using pre-trained weights
     model.fit(data, 
               steps_per_epoch=steps_per_epoch, 
-              epochs=500,#1000
+              epochs=150,#1000
               reduce_lr=False, 
               batch_size=args.batch_size, 
               lr=args.lr,
@@ -287,60 +330,80 @@ if __name__ == '__main__':
     # train just the predictor after training HMM if lambda=0
     if args.lamb==0:
         print('Training the predictor only since lambda=0')
+        x_train, y_train = data.train().numpy()
         z_train = model.hmm_model.predict(x_train)
         z_train_mean = np.mean(z_train, axis=1)
         
-        logistic = LogisticRegression(solver='lbfgs', random_state = 42)
-        penalty = ['l2']
-        C = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e2, 1e3, 1e4, 1e5]
-        hyperparameters = dict(C=C, penalty=penalty)
-        classifier = GridSearchCV(logistic, hyperparameters, cv=5, verbose=10, scoring = 'average_precision')
+        R = max(y_train)+1
+        cutpoints = tf.Variable(initial_value=tf.range(R-1, dtype=np.float32) / (R-2),
+                                trainable=True)
         
-        labeled_inds = ~np.isnan(y_train[:,1])
-        cv = classifier.fit(z_train_mean[labeled_inds], y_train[labeled_inds,1])
-
-        # get the logistic regression coefficients. These are the optimal eta coefficients.
-        lr_weights = cv.best_estimator_.coef_
-
-        # set the K logistic regression weights as K x 2 eta coefficients
-        opt_eta_weights = np.vstack([np.zeros_like(lr_weights), lr_weights]).T
-
-        # set the intercept of the eta coefficients
-        opt_eta_intercept = np.asarray([0, cv.best_estimator_.intercept_[0]])
-        final_etas = [opt_eta_weights, opt_eta_intercept]
-        model._predictor.set_weights(final_etas)
+        ordinal_model = tf.keras.Sequential([tf.keras.layers.Dense(1),
+                                     tfp.layers.DistributionLambda(lambda t: tfp.distributions.OrderedLogistic(cutpoints=cutpoints, loc=t))])
+        
+        ordinal_model.compile(optimizer=Adam(lr=0.001), loss=OrdinalLoss())
+        ordinal_model.fit(z_train_mean, y_train, epochs=100)
+        
+        x_valid, y_valid = data.valid().numpy()
+        z_valid = model.hmm_model.predict(x_valid)
+        z_valid_mean = z_valid.mean(axis=1)
+        
+        y_probas_valid_NC = ordinal_model(z_valid_mean).categorical_probs().numpy().squeeze()
+        y_probas_valid_N3 = np.sum(y_probas_valid_NC[:, 1:], axis=1)
+        y_valid_N3 = (y_valid>=1)*1
+        
+        ap_los_3 = average_precision_score(y_valid_N3, y_probas_valid_N3)
     
-    # evaluate on test set
-#     x_train, y_train = data.train().numpy()
+    # evaluate on train set
+    x_train, y_train = data.train().numpy()
     z_train = model.hmm_model.predict(x_train)
-    y_train_pred_proba = model._predictor.predict(z_train)
-    labelled_inds_tr = ~np.isnan(y_train[:,0])
-    train_roc_auc = roc_auc_score(y_train[labelled_inds_tr, 1], y_train_pred_proba[labelled_inds_tr, 1])
-    train_auprc = average_precision_score(y_train[labelled_inds_tr, 1], y_train_pred_proba[labelled_inds_tr, 1])
-    print('ROC AUC on train : %.4f'%train_roc_auc)
-    print('AUPRC on train : %.4f'%train_auprc)
+    y_train_pred_proba_NC = model._predictor(z_train).distribution.categorical_probs().numpy().squeeze()
+    
+    
+    y_train_N3, y_train_pred_proba_N3, train_auprc_3, train_roc_auc_3, y_train_N7, y_train_pred_proba_N7, train_auprc_7, train_roc_auc_7, y_train_N11, y_train_pred_proba_N11, train_auprc_11, train_roc_auc_11 = compute_binary_classification_perf(y_train, y_train_pred_proba_NC)
+    print('ROC AUC for los> 3 days on train : %.4f'%train_roc_auc_3)
+    print('AUPRC for los> 3 days on train : %.4f'%train_auprc_3)
+    
+    print('ROC AUC for los> 7 days on train : %.4f'%train_roc_auc_7)
+    print('AUPRC for los> 7 days on train : %.4f'%train_auprc_7)
+    
+    print('ROC AUC for los> 11 days on train : %.4f'%train_roc_auc_11)
+    print('AUPRC for los> 11 days on train : %.4f'%train_auprc_11)
+    
+    
     
     
     # evaluate on valid set
     x_valid, y_valid = data.valid().numpy()
     z_valid = model.hmm_model.predict(x_valid)
-    y_valid_pred_proba = model._predictor.predict(z_valid)
-    labelled_inds_va = ~np.isnan(y_valid[:,0])
-    valid_roc_auc = roc_auc_score(y_valid[labelled_inds_va], y_valid_pred_proba[labelled_inds_va])
-    valid_auprc = average_precision_score(y_valid[labelled_inds_va, 1], y_valid_pred_proba[labelled_inds_va, 1])
-    print('ROC AUC on valid : %.4f'%valid_roc_auc)
-    print('AUPRC on valid : %.4f'%valid_auprc)
+    y_valid_pred_proba_NC = model._predictor(z_valid).distribution.categorical_probs().numpy().squeeze()
+    
+    
+    y_valid_N3, y_valid_pred_proba_N3, valid_auprc_3, valid_roc_auc_3, y_valid_N7, y_valid_pred_proba_N7, valid_auprc_7, valid_roc_auc_7, y_valid_N11, y_valid_pred_proba_N11, valid_auprc_11, valid_roc_auc_11 = compute_binary_classification_perf(y_valid, y_valid_pred_proba_NC)
+    print('ROC AUC for los> 3 days on valid : %.4f'%valid_roc_auc_3)
+    print('AUPRC for los> 3 days on valid : %.4f'%valid_auprc_3)
+    
+    print('ROC AUC for los> 7 days on valid : %.4f'%valid_roc_auc_7)
+    print('AUPRC for los> 7 days on valid : %.4f'%valid_auprc_7)
+    
+    print('ROC AUC for los> 11 days on valid : %.4f'%valid_roc_auc_11)
+    print('AUPRC for los> 11 days on valid : %.4f'%valid_auprc_11)
     
     
     # evaluate on test set
     x_test, y_test = data.test().numpy()
     z_test = model.hmm_model.predict(x_test)
-    y_test_pred_proba = model._predictor.predict(z_test)
-    labelled_inds_te = ~np.isnan(y_test[:,0])
-    test_roc_auc = roc_auc_score(y_test[labelled_inds_te], y_test_pred_proba[labelled_inds_te])
-    test_auprc = average_precision_score(y_test[labelled_inds_te, 1], y_test_pred_proba[labelled_inds_te, 1])
-    print('ROC AUC on test : %.4f'%test_roc_auc)
-    print('AUPRC on test : %.4f'%test_auprc)
+    y_test_pred_proba_NC = model._predictor(z_test).distribution.categorical_probs().numpy().squeeze()
+
+    y_test_N3, y_test_pred_proba_N3, test_auprc_3, test_roc_auc_3, y_test_N7, y_test_pred_proba_N7, test_auprc_7, test_roc_auc_7, y_test_N11, y_test_pred_proba_N11, test_auprc_11, test_roc_auc_11 = compute_binary_classification_perf(y_test, y_test_pred_proba_NC)
+    print('ROC AUC for los> 3 days on test : %.4f'%test_roc_auc_3)
+    print('AUPRC for los> 3 days on test : %.4f'%test_auprc_3)
+    
+    print('ROC AUC for los> 7 days on test : %.4f'%test_roc_auc_7)
+    print('AUPRC for los> 7 days on test : %.4f'%test_auprc_7)
+    
+    print('ROC AUC for los> 11 days on test : %.4f'%test_roc_auc_11)
+    print('AUPRC for los> 11 days on test : %.4f'%test_auprc_11)    
     
     # get the parameters of the fit distribution
     mu_all = model.hmm_model(x_train[:10]).observation_distribution.distribution.mean().numpy()
@@ -369,12 +432,24 @@ if __name__ == '__main__':
     
     # save some additional performance 
     perf_save_file = os.path.join(args.output_dir, 'final_perf_'+args.output_filename_prefix+'.csv')
-    model_perf_df = pd.DataFrame([{'train_AUPRC' : train_auprc, 
-                                   'valid_AUPRC' : valid_auprc, 
-                                   'test_AUPRC' : test_auprc,
-                                   'train_AUC' : train_roc_auc,
-                                   'valid AUC' : valid_roc_auc,
-                                   'test AUC' : test_roc_auc}])
+    model_perf_df = pd.DataFrame([{'train_AUPRC_3' : train_auprc_3, 
+                                   'valid_AUPRC_3' : valid_auprc_3, 
+                                   'test_AUPRC_3' : test_auprc_3,
+                                   'train_AUC_3' : train_roc_auc_3,
+                                   'valid AUC_3' : valid_roc_auc_3,
+                                   'test AUC_3' : test_roc_auc_3,
+                                   'train_AUPRC_7' : train_auprc_7, 
+                                   'valid_AUPRC_7' : valid_auprc_7, 
+                                   'test_AUPRC_7' : test_auprc_7,
+                                   'train_AUC_7' : train_roc_auc_7,
+                                   'valid AUC_7' : valid_roc_auc_7,
+                                   'test AUC_7' : test_roc_auc_7,
+                                   'train_AUPRC_11' : train_auprc_11, 
+                                   'valid_AUPRC_11' : valid_auprc_11, 
+                                   'test_AUPRC_11' : test_auprc_11,
+                                   'train_AUC_11' : train_roc_auc_11,
+                                   'valid AUC_11' : valid_roc_auc_11,
+                                   'test AUC_11' : test_roc_auc_11}])
     
     
     model_perf_df.to_csv(perf_save_file, index=False)
