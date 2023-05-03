@@ -3,28 +3,28 @@ Reproducible workflow for building toy dataset
 
 Usage
 -----
-snakemake --cores 1 --snakefile make_toy_dataset_and_split_train_test.smk build_csv_dataset_for_pchmm
+snakemake --cores 1 --snakefile make_ordinal_toy_dataset_and_split_train_test.smk build_csv_dataset_for_pchmm
 
-snakemake --cores 1 --snakefile make_toy_dataset_and_split_train_test.smk split_2d_features_into_many_train_and_test
+snakemake --cores 1 --snakefile make_ordinal_toy_dataset_and_split_train_test.smk split_2d_features_into_many_train_and_test
 '''
 
 import json
 import glob
 configfile:"pchmm_train_test_splitting.json"
 
-DATASET_SPLIT_PATH = os.path.join('data', 'train_test_data')
+DATASET_SPLIT_PATH = os.path.join('ordinal_data', 'train_test_data')
 PROJECT_CONDA_ENV_YAML = "pchmm.yml"
 
 rule build_csv_dataset_for_pchmm:
     input:
-        script='make_toy_dataset.py'
+        script='make_ordinal_toy_dataset.py'
 
     params:
-        output_dir='data'
+        output_dir='ordinal_data'
 
     output:
-        x_std_data_csv=os.path.join('data', 'features_2d_per_tstep_no_imp_observed=60_perc.csv'),
-        y_std_data_csv=os.path.join('data', 'outcomes_per_seq.csv')
+        x_std_data_csv=os.path.join('ordinal_data', 'features_2d_per_tstep_no_imp_observed=60_perc.csv'),
+        y_std_data_csv=os.path.join('ordinal_data', 'outcomes_per_seq.csv')
         
     shell:
         '''
@@ -33,6 +33,7 @@ rule build_csv_dataset_for_pchmm:
             --Nmax 350 \
             --Tmax 8 \
             --n_states 4 \
+            --num_ordinal_labels 4 \
         '''
 
 rule split_2d_features_into_many_train_and_test:
@@ -42,10 +43,10 @@ rule split_2d_features_into_many_train_and_test:
 rule split_2d_features_into_train_and_test:
     input:
         script=os.path.abspath(os.path.join('../', 'utils', 'split_dataset.py')),
-        x_csv=os.path.join('data', 'features_2d_per_tstep_{missing_handling}_observed={perc_obs}_perc.csv'),
-        x_json=os.path.join('data', 'Spec_Features2DPerTimestep.json'),
-        y_csv=os.path.join('data', 'outcomes_per_seq.csv'),
-        y_json=os.path.join('data', 'Spec_OutcomesPerSequence.json')
+        x_csv=os.path.join('ordinal_data', 'features_2d_per_tstep_{missing_handling}_observed={perc_obs}_perc.csv'),
+        x_json=os.path.join('ordinal_data', 'Spec_Features2DPerTimestep.json'),
+        y_csv=os.path.join('ordinal_data', 'outcomes_per_seq.csv'),
+        y_json=os.path.join('ordinal_data', 'Spec_OutcomesPerSequence.json')
 
     output:
         x_train_csv=os.path.join(DATASET_SPLIT_PATH, 'x_train_{missing_handling}_observed={perc_obs}_perc.csv'),

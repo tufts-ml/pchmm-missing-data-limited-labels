@@ -264,7 +264,9 @@ if __name__ == "__main__":
     axs.set_ylim([-5, 3])
     axs.set_title('Raw features in state = 2')
     axs.grid(True)
-    axs.legend()  # Show legend
+    handles, labels = axs.get_legend_handles_labels()
+    axs.legend(handles[::-1], labels[::-1], title='Label') # Reverse legend order
+    # axs.legend()  # Show legend
     state_2_png = os.path.join(
         args.output_dir, f'{filename}.png')
     # plot_pdf = os.path.join(
@@ -403,7 +405,9 @@ if __name__ == "__main__":
             axs.set_title('Raw features with %s' %
                           (feat_aka.replace('_', ' ')))
             axs.grid(True)
-            axs.legend()  # Show legend
+            handles, labels = axs.get_legend_handles_labels()
+            axs.legend(handles[::-1], labels[::-1], title='Label') # Reverse legend order
+            # axs.legend()  # Show legend
             plot_png = os.path.join(
                 args.output_dir, 'example_pos_and_neg_sequences_%s.png' % feat_aka)
             plot_pdf = os.path.join(

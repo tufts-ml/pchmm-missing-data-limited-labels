@@ -10,7 +10,8 @@ from tensorflow.keras.layers import Lambda, Dense
 import numpy as np
 # from ..third_party.convar import ConvolutionalAutoregressiveNetwork
 import tensorflow as tf
-from tensorflow_probability.python.internal import prefer_static as ps
+# from tensorflow_probability.python.internal import prefer_static as ps
+
 
 '''
 Functions for computing between-distribution losses
@@ -144,8 +145,8 @@ class NormalWithMissing(tfd.Normal):
 
     
 class OrderedLogistic(tfd.OrderedLogistic):
-    def __init__(self, cutpoints, loc):
-        tfd.OrderedLogistic.__init__(self, loc=loc, cutpoints=cutpoints)
+    def __init__(self, loc):
+        tfd.OrderedLogistic.__init__(self, loc=loc, cutpoints=[.25, .5, .75])
     
     def _mean(self):
         return self._mode()
@@ -153,12 +154,13 @@ class OrderedLogistic(tfd.OrderedLogistic):
     
     @staticmethod
     def _param_shapes(sample_shape):
-        return {'loc': tf.convert_to_tensor(sample_shape),
-#                 'cutpoints' : ps.concat([[sample_shape], [3]], axis=-1)
-                'cutpoints' : tf.convert_to_tensor(3)
+#         return tfd.OrderedLogistic._param_shapes(sample_shape)
+        return {'loc': tf.convert_to_tensor(sample_shape, dtype=tf.int32),
+#                 'cutpoints' : ps.concat([[0], [3]], axis=-1)
+#                 'cutpoints' : tf.convert_to_tensor(3)
 #                 'cutpoints': tf.convert_to_tensor(sample_shape, dtype=tf.int32)
                }
-    
+
 class FixedNormal(tfd.Normal):
     def __init__(self, loc):
         tfd.Normal.__init__(self, loc=loc, scale=1e-5)

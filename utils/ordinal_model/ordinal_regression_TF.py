@@ -16,7 +16,7 @@ class OrdinalRegression:
         if random_state is not None:
             tf.random.set_seed(random_state)
 
-    def fit(self, X, y, use_gradient_tape=False, epochs=200, learning_rate=1e-3, dist='og'):
+    def fit(self, X, y, use_gradient_tape=False, epochs=200, learning_rate=1e-3, dist='og2', verbose='auto'):
         """Fit the data to an orderinal model predictor using TensorFlow.
 
         Parameters
@@ -32,7 +32,7 @@ class OrdinalRegression:
         learning_rate : _type_, optional
             Learning rate, by default 1e-3
         dist : str, optional
-            Type of distribution desired to be used in distribution layer, by default 'og'
+            Type of distribution desired to be used in distribution layer, by default 'og2'
         """
         # Training Set
         self.X = X
@@ -77,9 +77,9 @@ class OrdinalRegression:
                                loss=OrdinalLoss(),
                                metrics=[])
 
-            history = self.model.fit(X, y, epochs=epochs)
+            self.history = self.model.fit(X, y, epochs=epochs, verbose=verbose)
             self.losses = [[epoch_loss]
-                           for epoch_loss in history.history['loss']]
+                           for epoch_loss in self.history.history['loss']]
 
     def optimize(self, X, y, epochs=200, learning_rate=1e-3):
         """Optimize the loss function manually using TensorFlow's gradient tape.

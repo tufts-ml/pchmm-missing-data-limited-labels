@@ -341,7 +341,11 @@ class OrderedGaussian2(tfd.OrderedLogistic):
     def _log_prob(self, x):
         # TODO(b/149334734): Consider using QuantizedDistribution for the log_prob
         # computation for better precision.
+        eps = 1e-8
         num_categories = self._num_categories()
+
+        z = (self._augmented_cutpoints() - self.loc[..., tf.newaxis]) / self.scale
+        z = tf.where(tf.math.is_inf(z), tf.sign(z) * (1/eps), z) # replace inf/-inf with very large or very small value
 
         # from IPython import embed
         # embed()
@@ -353,8 +357,7 @@ class OrderedGaussian2(tfd.OrderedLogistic):
 
         x, augmented_log_survival = _broadcast_cat_event_and_params(
             event=x,
-            params=tfd.Normal(loc=0, scale=self.scale).log_cdf(
-                (self._augmented_cutpoints() - self.loc[..., tf.newaxis]) / self.scale),
+            params=tfd.Normal(loc=0, scale=1).log_cdf(z),
             base_dtype=dtype_util.base_dtype(self.dtype))
         x_flat = tf.reshape(x, [-1, 1])
         augmented_log_survival_flat = tf.reshape(
