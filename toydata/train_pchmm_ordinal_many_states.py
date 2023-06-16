@@ -219,7 +219,10 @@ if __name__ == '__main__':
     n_classes = int(y_train.max())+1
     n_states = args.n_states
     
+    n_states_kmeans = int(args.n_states/4)
+    
     _,T,F = X_train.shape
+
     per_class_init_means = []
     per_class_kmeans_models = []
     
@@ -230,16 +233,23 @@ if __name__ == '__main__':
         X_flat = X_train_jj.reshape(N*T, X_train_jj.shape[-1])# flatten across time
         X_flat = np.where(np.isnan(X_flat), ma.array(X_flat, mask=np.isnan(X_flat)).mean(axis=0), X_flat)
         
+#         X_flat = X_flat[X_flat[:, 0]<100]
         
         # get cluster means
-        kmeans = KMeans(n_clusters=n_states, n_init=10).fit(X_flat)
+        kmeans = KMeans(n_clusters=n_states_kmeans, n_init=5).fit(X_flat)
 #         sorted_cluster_centers = kmeans.cluster_centers_[np.argsort(kmeans.cluster_centers_[:, 0]), :]
         
         per_class_kmeans_models.append(kmeans)
         per_class_init_means.append(kmeans.cluster_centers_)
     
+    init_means = np.vstack(per_class_init_means)
+    init_means = init_means[np.argsort(init_means[:, 0]), :]
+
     
+#     # random init
+#     init_means = np.array([20., 5.]) * prng.randn(n_states, 2) + np.array([35, -0.5]) 
     
+    '''
     # aggregate the clusters such that there's max diversity amongst the learned clusters
     # Get the number of clusters
     num_clusters = per_class_kmeans_models[0].n_clusters
@@ -271,7 +281,8 @@ if __name__ == '__main__':
 
     
     init_means = init_means[np.argsort(init_means[:, 0]), :]
-        
+    '''
+    
     # get cluster covariance in each cluster
     init_covs = np.stack([np.array([0., 0.]) for i in range(n_states)])
     
@@ -317,6 +328,7 @@ if __name__ == '__main__':
     
     x_train,y_train = data.train().numpy()
     z_train = model.hmm_model.predict(x_train)
+    '''
     z_train_mean = np.mean(z_train, axis=1)
     
 
@@ -330,8 +342,9 @@ if __name__ == '__main__':
     
     
     model._predictor.set_weights(ordinal_model.get_weights())
+    '''
     
-    model.fit(data, steps_per_epoch=1, epochs=500, 
+    model.fit(data, steps_per_epoch=1, epochs=750, 
               batch_size=args.batch_size, 
               reduce_lr=False,
               lr=args.lr,
