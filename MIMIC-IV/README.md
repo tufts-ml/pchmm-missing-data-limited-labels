@@ -50,6 +50,6 @@ Use the "notebooks/evaluate_performance_{task}" to evaluate the performance of e
 
 
 The notebooks can be used to plot the performance of each model: 
-![PCHMM_vs_baselines](https://github.com/tufts-ml/pchmm-missing-data-limited-labels/blob/main/MIMIC-IV/figures/perf_mortality_prediction_mimic.pdf)
+![PCHMM_vs_baselines](https://github.com/tufts-ml/pchmm-missing-data-limited-labels/blob/main/MIMIC-IV/figures/perf_mortality_prediction_mimic.png)
  
 
