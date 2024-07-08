@@ -16,7 +16,7 @@ class HMM(BaseVAE):
                  states=10, observation_dist=None, predictor_dist=None, predictor_network=None,
                  initial_state_initializer=None, transition_initializer=None, observation_initializer=None,
                  initial_state_alpha=1., transition_alpha=1., observation_prior_loss=None, prior_weight=1.0,
-                 predictor_weight=0, debug=False, *args, **kwargs):
+                 predictor_weight=0, predictor_time_reducer='mean', debug=False, *args, **kwargs):
         super(HMM, self).__init__(*args, **kwargs)
 
         self.input_shape = input_shape
@@ -41,6 +41,7 @@ class HMM(BaseVAE):
         self.debug = debug
         self.prior_weight = prior_weight
         self.predictor_weight = predictor_weight
+        self.predictor_time_reducer=predictor_time_reducer
 
     def setup(self, data=None):
         if self.is_setup:
@@ -59,7 +60,9 @@ class HMM(BaseVAE):
                 self.predictor_dist = self.predictor_dist if self.predictor_dist else 'Categorical'
 
         self.steps = self.input_shape[-2]
-        self.predictor_network = get_predictor_network(self.predictor_network, predictor_l2_weight=self.predictor_weight,
+        self.predictor_network = get_predictor_network(self.predictor_network, 
+                                                       predictor_l2_weight=self.predictor_weight,
+                                                       predictor_time_reducer = self.predictor_time_reducer,
                                                        **self.kwargs)
         self.predictor_dist = get_tfd_distribution(self.predictor_dist, **self.kwargs)
         self.optimizer = get_optimizer(self.optimizer, **self.kwargs)
@@ -74,7 +77,7 @@ class HMM(BaseVAE):
             output = network_builder(input, output_shapes=output_shapes)
         except Exception as e:
             output = network_builder(input)
-
+        
         # Get list of parameters for the distribution
         preconstrained = True
         params, tensors = [], []
@@ -94,11 +97,12 @@ class HMM(BaseVAE):
         # Create the distribution object
         independent_transform = tfd.Independent if independent else lambda x: x
         convert_fn = tfd.Distribution.sample if sample else tfd.Distribution.mean
-        
+                
         def distribution_lambda(tensors_in):
             if preconstrained:
                 return independent_transform(distribution(preconstrained=True,
                                                           **{p: vt for (p, vt) in zip(params, tensors_in)}))
+            
             return independent_transform(distribution(
                 **{p: vt for (p, vt) in zip(params, tensors_in)}))
 
@@ -150,10 +154,17 @@ class HMM(BaseVAE):
         self.build_hmm_model()
         self.build_predictor()
         self.build_model()
-
-        self.predictor = tf.keras.Sequential(
-            [self.hmm_model, 
-             self._predictor, 
-             Lambda(lambda x: x.mean())
-            ])
+        
+        if self.predictor_time_reducer=='max':
+            self.predictor = tf.keras.Sequential(
+                [self.hmm_model, 
+                 self._predictor, 
+                 Lambda(lambda x: tf.reduce_max(x, axis=1))
+                ])
+        else:
+            self.predictor = tf.keras.Sequential(
+                [self.hmm_model, 
+                 self._predictor, 
+                 Lambda(lambda x: x.mean())
+                ])
         self.autoencoder = tf.keras.Sequential([Lambda(lambda x: x)])

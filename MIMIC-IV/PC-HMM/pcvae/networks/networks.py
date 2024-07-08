@@ -90,9 +90,15 @@ def get_predictor_network(network, predictor_l2_weight=0., predictor_time_reduce
         if len(x.shape) == 3:
             for cl in range(predictor_conv_layers):
                 x = tf.keras.layers.Conv1D(**predictor_conv_args)(x)
-        
-        if len(x.shape) == 3 and predictor_time_reducer:
+        if (len(x.shape) == 3) and (predictor_time_reducer=='mean'):
             x = Lambda(lambda a: tf.reduce_mean(a, axis=1))(x)
+        elif (len(x.shape) == 3) and (predictor_time_reducer=='max'):
+            x = Lambda(lambda a: tf.reduce_max(a, axis=1))(x)
+        elif (len(x.shape) == 3) and (predictor_time_reducer=='concat'):
+#             x = Lambda(lambda a: tf.reduce_mean(tf.concat([a[:, 0:1, :], a[:, -1:, :]], axis=1), axis=1))(x)
+            x = Lambda(lambda a: tf.concat([a[:, 0:1, :], a[:, -1:, :]], axis=-1))(x)
+    
+    
 #             sum_x_N = tf.constant(tf.reduce_sum(x, axis=1))
 #             _, seq_lens_N = tf.math.top_k(tf.cast(tf.reduce_all(x==0, axis=-1), x.dtype), k=1)
 #             seq_lens_N = tf.where(seq_lens_N==0, tf.ones_like(seq_lens_N), seq_lens_N)
@@ -100,7 +106,6 @@ def get_predictor_network(network, predictor_l2_weight=0., predictor_time_reduce
         
 #         input_statics = tf.keras.layers.Input(shape=(3,))
 #         concat = tf.keras.layers.Concatenate()([x, input_statics])
-        
         for dl in range(predictor_dense_layers):
             kernel_reg = tf.keras.regularizers.l2(predictor_l2_weight)
             bias_reg = tf.keras.regularizers.l2(predictor_l2_weight)
@@ -117,6 +122,7 @@ def get_predictor_network(network, predictor_l2_weight=0., predictor_time_reduce
             tensors.append(Reshape(shape)(Dense(shape.num_elements(),
                                                 kernel_regularizer=kernel_reg,
                                                 bias_regularizer=bias_reg)(x)))
+
         return dict(zip(params, tensors))
     return func
 

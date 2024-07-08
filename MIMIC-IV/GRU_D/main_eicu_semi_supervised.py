@@ -1,21 +1,16 @@
 import sys
 import os
 import json
-PROJECT_SRC_DIR = '/cluster/tufts/hugheslab/prath01/projects/time_series_prediction/src/'
+PROJECT_SRC_DIR = os.path.abspath('../../MIMIC-IV')
 sys.path.append(PROJECT_SRC_DIR)
-sys.path.append(os.path.join(PROJECT_SRC_DIR, "rnn"))
 sys.path.append(os.path.join(PROJECT_SRC_DIR, "GRU_D", "GRU-D"))
-sys.path.append(os.path.abspath("../src"))
-from dataset_loader import TidySequentialDataCSVLoader
-from feature_transformation import parse_id_cols, parse_output_cols, parse_feature_cols, parse_id_cols, parse_time_cols
 from numpy.random import seed
 import tensorflow as tf
 import pandas as pd
 import numpy as np
-from utils import load_data_dict_json
 from sklearn.metrics import (roc_auc_score, average_precision_score)
-sys.path.append('./GRU-D/')
-from models import create_grud_model
+# sys.path.append('./GRU-D/')
+from models import create_grud_model, create_grud_ordinal_model
 import seaborn as sns
 import matplotlib.pyplot as plt
 import argparse
@@ -29,7 +24,7 @@ def scheduler(epoch, lr):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='GRU-D fitting')
-    parser.add_argument('--outcome_col_name', type=str, required=True)
+#     parser.add_argument('--outcome_col_name', type=str, required=True)
     parser.add_argument('--train_np_files', type=str, required=True)
     parser.add_argument('--test_np_files', type=str, required=True)
     parser.add_argument('--valid_np_files', type=str, default=None)
@@ -148,7 +143,7 @@ if __name__ == '__main__':
     predefined_model = 'GRUD'
     use_bidirectional_rnn=False
     outcome="mort_hosp"
-    recurrent_dim = [64]
+    recurrent_dim = [128]
     hidden_dim = [8]
     l2_penalty = args.l2_penalty
     dropout=args.dropout
@@ -173,13 +168,13 @@ if __name__ == '__main__':
                         tf.keras.metrics.AUC(curve='PR', name='AUPRC')])
     
     model.fit(x=[train_x_NTD, train_x_mask_NTD, train_timestep], y=train_y,
-         epochs=200,
+         epochs=20,
          batch_size=args.batch_size,
          validation_data=([valid_x_NTD, valid_x_mask_NTD, valid_timestep],
                          valid_y),
               callbacks=[
                          tf.keras.callbacks.EarlyStopping(monitor='val_loss', 
-                                                          mode='max', verbose=1, 
+                                                          mode='min', verbose=1, 
                                                           patience=5),
 #                          tf.keras.callbacks.LearningRateScheduler(scheduler)
                         ])

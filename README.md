@@ -1,10 +1,10 @@
-# Prediction-Constrained Markov Models for Medical Time Series with Missing Data and Few Labels
+# Predicting Patient Outcomes from Time Series with Missing Data via a Semi-supervised Hidden Markov Model
 
-This repository contains code for reproducing the experiments for the "Prediction-Constrained Markov Models for Medical Time Series with Missing Data and Few Labels" paper. Experiments are segregated by dataset and contains code for data generation and running baselines: 
-
- - Toy 2-D (Figure 1 in the paper) 
- - eICU (Figure 2 in paper)
- - MIMIC-IV (Figure 2 in paper)
+This repository contains code for reproducing the experiments for the "Predicting Patient Outcomes from Time Series with Missing Data via a Semi-supervised Hidden Markov Model" paper. Experiments are segregated by dataset and contains code for data generation and running baselines: 
+ 
+ - MIMIC-IV
+ - eICU
+ - Toy experiments
 
 # Workflow
 - Change directory to the experiment to reproduce

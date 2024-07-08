@@ -15,7 +15,7 @@ sys.path.append(PROJECT_REPO_DIR)
 sys.path.append(os.path.join(PROJECT_REPO_DIR, 'pcvae'))
 
 # sys.path.append('pcvae/util/')
-from dataset_loader import TidySequentialDataCSVLoader
+# from dataset_loader import TidySequentialDataCSVLoader
 # from feature_transformation import (parse_id_cols, parse_feature_cols)
 # from utils import load_data_dict_json
 from joblib import dump
@@ -92,14 +92,14 @@ def convert_to_categorical(y):
     return y_cat
 
 def save_loss_plots(model, save_file, data_dict):
-    model_hist = model.history.history
-    epochs = range(len(model_hist['loss']))
-    hmm_model_loss = model_hist['hmm_model_loss']
-    predictor_loss = model_hist['predictor_loss']
-    model_hist['epochs'] = epochs
-    model_hist['n_train'] = len(data_dict['train'][1])
-    model_hist['n_valid'] = len(data_dict['valid'][1])
-    model_hist['n_test'] = len(data_dict['test'][1])
+    model_hist = model.history.history    
+#     epochs = range(len(model_hist['loss']))
+#     hmm_model_loss = model_hist['hmm_model_loss']
+#     predictor_loss = model_hist['predictor_loss']
+#     model_hist['epochs'] = epochs
+#     model_hist['n_train'] = len(data_dict['train'][1])
+#     model_hist['n_valid'] = len(data_dict['valid'][1])
+#     model_hist['n_test'] = len(data_dict['test'][1])
     model_hist_df = pd.DataFrame(model_hist)
     
     # save to file
@@ -165,7 +165,7 @@ if __name__ == '__main__':
     '''
     
     N,T,F = X_train.shape
-    
+    n_classes = int(np.nanmax(y_train))+1
     
     print('number of data points : %d\nnumber of time points : %s\nnumber of features : %s\n'%(N,T,F))
     
@@ -206,6 +206,57 @@ if __name__ == '__main__':
 
         # get cluster covariance in each cluster
         init_covs = np.stack([np.zeros(F) for i in range(n_states)])
+    if args.init_strategy=='per_class_kmeans_max_diversity':
+        print('Initializing cluster means with per class kmeans with max diversity...')
+        per_class_init_means = []
+        per_class_kmeans_models = []
+
+        for jj in range(n_classes):
+            X_train_jj = X_train[y_train==jj]
+            N = len(X_train_jj)
+            
+            # get cluster means
+            kmeans = KMeans(n_clusters=n_states, n_init=5, random_state=args.seed).fit(X_flat)
+    #         sorted_cluster_centers = kmeans.cluster_centers_[np.argsort(kmeans.cluster_centers_[:, 0]), :]
+
+            per_class_kmeans_models.append(kmeans)
+            per_class_init_means.append(kmeans.cluster_centers_)
+        
+        
+        # aggregate the clusters such that there's max diversity amongst the learned clusters
+        # Get the number of clusters
+        num_clusters = per_class_kmeans_models[0].n_clusters
+
+        # Initialize an array to store the aggregated cluster centers
+        init_means = np.zeros((num_clusters, F))
+        
+        # Iterate over each cluster index
+        for cluster_index in range(num_clusters):
+            # Get the cluster centers for each class
+            cluster_centers = []
+            for model in per_class_kmeans_models:
+                cluster_centers.append(model.cluster_centers_[cluster_index])
+
+
+            # Calculate the pairwise distances between cluster centers
+            pairwise_distances = np.zeros((len(per_class_kmeans_models), len(per_class_kmeans_models)))
+            for i in range(len(per_class_kmeans_models)):
+                for j in range(i + 1, len(per_class_kmeans_models)):
+                    pairwise_distances[i, j] = np.linalg.norm(cluster_centers[i] - cluster_centers[j])
+                    pairwise_distances[j, i] = pairwise_distances[i, j]
+
+            # Find the cluster center with maximum average distance to other centers
+            average_distances = np.mean(pairwise_distances, axis=1)
+            most_diverse_index = np.argmax(average_distances)
+
+            # Store the most diverse cluster center
+            init_means[cluster_index] = cluster_centers[most_diverse_index]
+
+
+#         init_means = init_means[np.argsort(init_means[:, 0]), :]
+        
+        # get cluster covariance in each cluster
+        init_covs = np.stack([np.zeros(F) for i in range(n_states)])
     elif args.init_strategy=='uniform':
         print('Initializing cluster means with random init...')
         percentile_ranges_F2 = np.percentile(X_flat, [1, 99], axis=0).T
@@ -226,11 +277,7 @@ if __name__ == '__main__':
     # train model
     optimizer = get_optimizer('adam', lr = args.lr)
 
-    # draw the initial probabilities from dirichlet distribution
-#     prng = np.random.RandomState(args.seed)
-#     init_state_probas = prng.dirichlet(5*np.ones(n_states))
-#     initial_state_logits = np.log(init_state_probas)
-    
+#     if n_states<=10:
     initial_state_logits = tf.zeros([n_states]) # uniform distribution
     daily_change_prob = 0.5#0.05
     transition_probs = tf.fill([n_states, n_states],
@@ -238,9 +285,26 @@ if __name__ == '__main__':
     transition_logits = np.log(tf.linalg.set_diag(transition_probs,
                                           tf.fill([n_states], 
                                                   1 - daily_change_prob)))
-    
-    
-    
+#     else:        
+#         start_n_states = 5
+#         # Give probability exp(-100) ~= 0 to states outside of the current model.
+#         active_states_mask = tf.concat([tf.ones([start_n_states]),
+#                                         tf.zeros([n_states - start_n_states])],
+#                                         axis=0)
+        
+#         daily_change_prob = 0.5
+#         initial_state_logits = -100. * (1 - active_states_mask)
+#         transition_probs = tf.fill([start_n_states, start_n_states],
+#                              0. if start_n_states == 1
+#                              else daily_change_prob / (start_n_states - 1)) 
+        
+#         padded_transition_probs = tf.eye(n_states) + tf.pad(
+#         tf.linalg.set_diag(transition_probs,
+#                          tf.fill([start_n_states], - daily_change_prob)),
+#             paddings=[(0, n_states - start_n_states),
+#                 (0, n_states - start_n_states)])
+        
+#         transition_logits = np.log(padded_transition_probs+1e-5)
     
     model = HMM(
             states=n_states,                                     
@@ -269,59 +333,31 @@ if __name__ == '__main__':
     
     model.build(data) 
         
-    '''
-    # set the regression coefficients of the model
-    eta_weights = np.zeros((n_states, 2))  
-        
-    # set the initial etas as the weights from logistic regression classifier with average beliefs as features 
-    x_train,y_train = data.train().numpy()
-    
-    pos_inds = np.where(y_train[:,1]==1)[0]
-    neg_inds = np.where(y_train[:,0]==1)[0]
-    
-    x_pos = x_train[pos_inds]
-    y_pos = y_train[pos_inds]
-    x_neg = x_train[neg_inds]
-    y_neg = y_train[neg_inds]
-    
-    # get their belief states of the positive and negative sequences
-    z_pos = model.hmm_model.predict(x_pos)
-    z_neg = model.hmm_model.predict(x_neg)
-    
-    # print the average belief states across time
-    beliefs_pos = z_pos.mean(axis=1)
-    beliefs_neg = z_neg.mean(axis=1)
+#     # initialize the predictor weights
+#     x_train,y_train = data.train().numpy()
+#     z_train = model.hmm_model.predict(x_train)
+#     z_train_mean = np.mean(z_train, axis=1)
+
+#     ordinal_model = tf.keras.Sequential([tf.keras.layers.Dense(1),
+#                                  tfp.layers.DistributionLambda(lambda t: tfp.distributions.OrderedLogistic(cutpoints=[.25, 
+#                                                                                                                       .5, .75],
+#                                                                                                            loc=t))])
+
+#     ordinal_model.compile(optimizer=Adam(lr=0.001), loss=OrdinalLoss())
+#     ordinal_model.fit(z_train_mean, y_train, epochs=100)
     
     
-    # perform logistic regression with belief states as features for these positive and negative samples
-    print('Performing Logistic Regression on initial belief states to get the initial eta coefficients...')
-    logistic = LogisticRegression(solver='lbfgs', random_state = 42)
-    penalty = ['l2']
-    C = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e2, 1e3, 1e4, 1e5]
-    hyperparameters = dict(C=C, penalty=penalty)
-    classifier = GridSearchCV(logistic, hyperparameters, cv=5, verbose=10, scoring = 'average_precision')
+#     model._predictor.set_weights(ordinal_model.get_weights())
     
-    X_tr = np.vstack([beliefs_pos, beliefs_neg])
-    y_tr = np.vstack([y_pos, y_neg])
-    cv = classifier.fit(X_tr, y_tr[:,1])
     
-    # get the logistic regression coefficients. These are the optimal eta coefficients.
-    lr_weights = cv.best_estimator_.coef_
     
-    # set the K logistic regression weights as K x 2 eta coefficients
-    opt_eta_weights = np.vstack([np.zeros_like(lr_weights), lr_weights]).T
-    
-    # set the intercept of the eta coefficients
-    opt_eta_intercept = np.asarray([0, cv.best_estimator_.intercept_[0]])
-    init_etas = [opt_eta_weights, opt_eta_intercept]
-    model._predictor.set_weights(init_etas)
-    '''
     steps_per_epoch = np.ceil(N/args.batch_size)
-        
+
+    
     # temporarily using pre-trained weights
     model.fit(data, 
               steps_per_epoch=steps_per_epoch, 
-              epochs=150,#1000
+              epochs=1000,#200
               reduce_lr=False, 
               batch_size=args.batch_size, 
               lr=args.lr,
@@ -334,25 +370,21 @@ if __name__ == '__main__':
         z_train = model.hmm_model.predict(x_train)
         z_train_mean = np.mean(z_train, axis=1)
         
-        R = max(y_train)+1
-        cutpoints = tf.Variable(initial_value=tf.range(R-1, dtype=np.float32) / (R-2),
-                                trainable=True)
+#         R = max(y_train)+1
+#         cutpoints = tf.Variable(initial_value=tf.range(R-1, dtype=np.float32) / (R-2),
+#                                 trainable=True)
         
         ordinal_model = tf.keras.Sequential([tf.keras.layers.Dense(1),
-                                     tfp.layers.DistributionLambda(lambda t: tfp.distributions.OrderedLogistic(cutpoints=cutpoints, loc=t))])
+                                     tfp.layers.DistributionLambda(lambda t: tfp.distributions.OrderedLogistic(cutpoints=[.25, 
+                                                                                                                          .5, .75],
+                                                                                                               loc=t))])
         
         ordinal_model.compile(optimizer=Adam(lr=0.001), loss=OrdinalLoss())
-        ordinal_model.fit(z_train_mean, y_train, epochs=100)
+        keep_inds = ~np.isnan(y_train)
+        ordinal_model.fit(z_train_mean[keep_inds], y_train[keep_inds], epochs=100)
         
-        x_valid, y_valid = data.valid().numpy()
-        z_valid = model.hmm_model.predict(x_valid)
-        z_valid_mean = z_valid.mean(axis=1)
+        model._predictor.set_weights(ordinal_model.get_weights())
         
-        y_probas_valid_NC = ordinal_model(z_valid_mean).categorical_probs().numpy().squeeze()
-        y_probas_valid_N3 = np.sum(y_probas_valid_NC[:, 1:], axis=1)
-        y_valid_N3 = (y_valid>=1)*1
-        
-        ap_los_3 = average_precision_score(y_valid_N3, y_probas_valid_N3)
     
     # evaluate on train set
     x_train, y_train = data.train().numpy()

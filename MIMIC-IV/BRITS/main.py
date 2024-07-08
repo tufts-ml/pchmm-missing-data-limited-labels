@@ -10,7 +10,8 @@ import numpy as np
 import time
 import utils
 import sys
-sys.path.append('models')
+import os
+sys.path.append(os.path.abspath('../BRITS/models'))
 import models
 import argparse
 # import data_loader
@@ -24,7 +25,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--train_np_files', type=str, required=True)
 parser.add_argument('--test_np_files', type=str, required=True)
 parser.add_argument('--valid_np_files', type=str, default=None)
-parser.add_argument('--epochs', type=int, default=30)
+parser.add_argument('--epochs', type=int, default=20)
 parser.add_argument('--batch_size', type=int, default=512)
 parser.add_argument('--lr', type=float, default=1e-3)
 parser.add_argument('--seed', type=int, default=512)
@@ -206,16 +207,16 @@ def run():
     valid_x_mask_NTD = 1-np.isnan(X_valid_labelled).astype(int)
     test_x_mask_NTD = 1-np.isnan(X_test_labelled).astype(int)    
     
-    train_x_delta_NTD = 8*train_x_mask_NTD  
-    train_x_delta_NTD[train_x_delta_NTD==0]=16
+    train_x_delta_NTD = 1*train_x_mask_NTD  
+    train_x_delta_NTD[train_x_delta_NTD==0]=2
     
     
-    valid_x_delta_NTD = 8*valid_x_mask_NTD
-    valid_x_delta_NTD[valid_x_delta_NTD==0]=16
+    valid_x_delta_NTD = 1*valid_x_mask_NTD
+    valid_x_delta_NTD[valid_x_delta_NTD==0]=2
     
     
-    test_x_delta_NTD = 8*test_x_mask_NTD
-    test_x_delta_NTD[test_x_delta_NTD==0]=16
+    test_x_delta_NTD = 1*test_x_mask_NTD
+    test_x_delta_NTD[test_x_delta_NTD==0]=2
     
     
     _, T, D = X_test_labelled.shape

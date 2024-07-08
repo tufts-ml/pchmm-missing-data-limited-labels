@@ -7,8 +7,8 @@ import time
 import random
 import sys
 import numpy as np
-PROJECT_REPO_DIR = os.path.abspath(os.path.join(__file__, '../../../'))
-sys.path.append(os.path.join(PROJECT_REPO_DIR, 'src', 'FixMatch', 'FixMatch-pytorch'))
+PROJECT_REPO_DIR = os.path.abspath(os.path.join(__file__, '../'))
+sys.path.append(os.path.join(PROJECT_REPO_DIR, 'FixMatch-pytorch'))
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -38,7 +38,7 @@ parser = argparse.ArgumentParser(description='PyTorch FixMatch Training')
 parser.add_argument('--train_np_files', type=str, required=True)
 parser.add_argument('--test_np_files', type=str, required=True)
 parser.add_argument('--valid_np_files', type=str, default=None)
-parser.add_argument('--epochs', default=100, type=int, metavar='N',
+parser.add_argument('--epochs', default=1500, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -139,6 +139,7 @@ def main():
     X_train_labelled = X_train[labelled_inds_tr].copy()
     if args.perc_labelled=='100':# hack for MixMatch with fully observed
         X_train_unlabelled = X_train_labelled.copy()
+        args.lambda_u=0
     else:
         X_train_unlabelled = X_train[~labelled_inds_tr]
     y_train_labelled = y_train[labelled_inds_tr]
@@ -173,9 +174,9 @@ def main():
         
         
 # #         # zscore normalization
-        den = np.nanstd(X_train[:, :, d])
-        if den==0:
-            den=1
+        den = 1#np.nanstd(X_train[:, :, d])
+#         if den==0:
+#             den=1
     
         X_train_labelled[:, :, d] = (X_train_labelled[:, :, d] - np.nanmean(X_train[:, :, d]))/den
         X_valid_labelled[:, :, d] = (X_valid_labelled[:, :, d] - np.nanmean(X_train[:, :, d]))/den

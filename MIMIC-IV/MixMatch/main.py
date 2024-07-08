@@ -7,8 +7,8 @@ import time
 import random
 import sys
 import numpy as np
-PROJECT_REPO_DIR = os.path.abspath(os.path.join(__file__, '../../../'))
-sys.path.append(os.path.join(PROJECT_REPO_DIR, 'src', 'MixMatch', 'MixMatch-pytorch'))
+PROJECT_REPO_DIR = os.path.abspath(os.path.join(__file__, '../'))
+sys.path.append(os.path.join(PROJECT_REPO_DIR, 'MixMatch-pytorch'))
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -233,14 +233,6 @@ def main():
     # Model
     print("==> creating GRU")
     def create_model(ema=False):
-#         model = models.WideResNet(num_classes=2)
-#         model = RNNBinaryClassifierModule(rnn_type='GRU', 
-#                                           n_inputs=D, 
-#                                           n_hiddens=32, 
-#                                           n_layers=1,
-#                                           dropout_proba=0.0, 
-#                                           dropout_proba_non_recurrent=0.0, 
-#                                           bidirectional=False)
         model=SimpleRNN(input_size=D, hidden_size=64, 
                         output_size=2, num_layers=2)
 #         model = model.cuda()
@@ -256,7 +248,7 @@ def main():
 
 #     cudnn.benchmark = True
     print('Total params: %d' % (sum(p.numel() for p in model.parameters())))
-
+        
     train_criterion = SemiLoss()
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
@@ -264,8 +256,8 @@ def main():
     ema_optimizer= WeightEMA(model, ema_model, alpha=args.ema_decay)
     start_epoch = 0
 
-    early_stopping_epochs=5#10
-    min_epochs_before_early_stopping=20#50
+    early_stopping_epochs=10
+    min_epochs_before_early_stopping=50
     step = 0
     perf_dict_list = []
     # Train and val

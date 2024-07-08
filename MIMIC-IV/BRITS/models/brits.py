@@ -21,18 +21,24 @@ RNN_HID_SIZE = 64
 
 
 class Model(nn.Module):
-    def __init__(self, rnn_hid_size, impute_weight, label_weight):
+    def __init__(self, rnn_hid_size, impute_weight, label_weight, outcome_type='binary'):
         super(Model, self).__init__()
 
         self.rnn_hid_size = rnn_hid_size
         self.impute_weight = impute_weight
         self.label_weight = label_weight
+        self.outcome_type = outcome_type
 
         self.build()
 
     def build(self):
-        self.rits_f = rits.Model(self.rnn_hid_size, self.impute_weight, self.label_weight)
-        self.rits_b = rits.Model(self.rnn_hid_size, self.impute_weight, self.label_weight)
+        
+        if self.outcome_type == 'binary':
+            self.rits_f = rits.Model(self.rnn_hid_size, self.impute_weight, self.label_weight)
+            self.rits_b = rits.Model(self.rnn_hid_size, self.impute_weight, self.label_weight)
+        elif self.outcome_type == 'ordinal':
+            self.rits_f = rits.OrdinalModel(self.rnn_hid_size, self.impute_weight, self.label_weight)
+            self.rits_b = rits.OrdinalModel(self.rnn_hid_size, self.impute_weight, self.label_weight)
 
     def forward(self, data):
         ret_f = self.rits_f(data, 'forward')

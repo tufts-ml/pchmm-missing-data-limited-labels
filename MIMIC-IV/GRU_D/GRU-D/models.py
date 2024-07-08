@@ -11,8 +11,12 @@ from tensorflow.keras.utils import custom_object_scope
 from nn_utils.grud_layers import Bidirectional_for_GRUD, GRUD
 from nn_utils.layers import ExternalMasking
 
+from tensorflow_probability import distributions as tfd
+import tensorflow_probability as tfp
+import tensorflow as tf
+import numpy as np
 
-__all__ = ['create_grud_model', 'load_grud_model']
+__all__ = ['create_grud_model', 'load_grud_model', 'create_grud_ordinal_model']
 
 
 def create_grud_model(input_dim, recurrent_dim, hidden_dim,
@@ -66,6 +70,72 @@ def create_grud_model(input_dim, recurrent_dim, hidden_dim,
 
     model = Model(inputs=input_list, outputs=output_list)
     return model
+
+def create_grud_ordinal_model(input_dim, recurrent_dim, hidden_dim,
+                      output_dim, output_activation,
+                      predefined_model=None,
+                      use_bidirectional_rnn=False, use_batchnorm=False,
+                      dropout=0.3, l2_penalty=1e-4, **kwargs):
+
+    if (predefined_model is not None
+            and predefined_model in _PREDEFINED_MODEL_LIST):
+        for c, v in _PREDEFINED_MODEL_LIST[predefined_model].items():
+            kwargs[c] = v
+    # Input
+    input_x = Input(shape=(None, input_dim))
+    input_m = Input(shape=(None, input_dim))
+    input_s = Input(shape=(None, 1))
+    input_list = [input_x, input_m, input_s]
+    input_x = ExternalMasking()([input_x, input_m])
+    input_s = ExternalMasking()([input_s, input_m])
+    input_m = Masking()(input_m)
+    # GRU layers
+    grud_layer = GRUD(units=recurrent_dim[0],
+                      return_sequences=len(recurrent_dim) > 1,
+                      activation='sigmoid',
+                      dropout=dropout,
+                      recurrent_dropout=dropout,
+                      **kwargs
+                     )
+    if use_bidirectional_rnn:
+        grud_layer = Bidirectional_for_GRUD(grud_layer)
+    x = grud_layer([input_x, input_m, input_s])
+    for i, rd in enumerate(recurrent_dim[1:]):
+        gru_layer = GRU(units=rd,
+                        return_sequences=i < len(recurrent_dim) - 2,
+                        dropout=dropout,
+                        recurrent_dropout=dropout,
+                       )
+        if use_bidirectional_rnn:
+            gru_layer = Bidirectional(gru_layer)
+        x = gru_layer(x)
+    # MLP layers
+    x = Dropout(dropout)(x)
+    for hd in hidden_dim:        
+        x = Dense(units=hd,
+                  kernel_regularizer=l2(l2_penalty))(x)
+        if use_batchnorm:
+            x = BatchNormalization()(x)
+        x = Activation('relu')(x)
+    x = Dense(output_dim, activation=output_activation)(x)
+    
+#     R=4
+#     cutpoints = tf.Variable(
+#     initial_value=np.array([0.25, 0.5, 0.75], dtype=np.float32),
+#     trainable=True,
+#     )
+    
+    output_layer = tfp.layers.DistributionLambda(
+        lambda t: tfp.distributions.OrderedLogistic(loc=t, cutpoints=[0.25, 0.5, 0.75]),
+        convert_to_tensor_fn=tfd.Distribution.sample)
+
+    output_tensor = output_layer(x)
+    
+#     output_list = [x]
+
+    model = Model(inputs=input_list, outputs=output_tensor)
+    return model
+
 
 
 def load_grud_model(file_name):

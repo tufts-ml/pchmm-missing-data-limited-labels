@@ -1,5 +1,4 @@
-
-# Reproducing MIMIC-IV in-ICU mortality prediction experiment
+# Reproducing MIMIC-IV in-ICU mortality prediction and LOS ordinal regression experiments
 
 
 ## Workflow
@@ -15,60 +14,42 @@ Running the notebook generates 3 files :
 
 Make sure to save these files in the "data" folder
 
-### Pre-process the chart events to extract and downsample relevant vitals and lower outcome rate
+### Pre-process the chart events to extract and downsample relevant vitals and outcomes
 Run the "make_csv_dataset_from_raw.py" script to generate 3 files :
 
- - features_per_tstep.csv.gz (downsampled vitals with timestamps)
- - outcomes_per_seq.csv (outcomes with lowered rate)
+ - features_per_tstep.csv.gz (hourly spaced vitals with timestamps)
+ - outcomes_per_seq.csv (mortality and LOS outcomes)
  - demographics.csv.gz (demographics per admission)
 
-`>> python make_csv_dataset_from_raw.py --dataset_raw_path "data" --output_dir "data"`
+`>> python make_csv_dataset_from_raw_for_mortality_and_los_prediction.py --dataset_raw_path "data/MIMIC-IV" --output_dir "data/MIMIC-IV"`
 
 The full list of features can be found in [this](https://docs.google.com/spreadsheets/d/1Q3GfoC47P7nHhT8pDs73lJ5tGCQw6zhK49eTqn-gtyE/edit?usp=sharing) spec sheet
- 
-
-### Align to regularly spaced grid and split into train, valid and test
-Run the script "handle_raw_data_and_split_train_test.smk" to align to a grid of equally spaced timestamps spaced 8 hours apart
-
-    >> snakemake --cores 1 --snakefile handle_raw_data_and_split_train_test.smk make_features_and_outcomes_for_custom_times_prediction
-
-This creates 2 files : 
-
- - features_aligned_to_grid.csv.gz (features spaced 8 hours apart)
- - outcomes_aligned_to_grid.csv.gz (Outcomes every 8 hours)
-
-Generate the train/valid/test files ensuring that the patients in training do not appear in validation or test
-
-    snakemake --cores 1 --snakefile handle_raw_data_and_split_train_test.smk split_into_train_and_test
-
-This generates the following files
- - x_CustomTimes{train/valid/test}_vitals_only_csv.gz (train/valid/test features)
- - y_CustomTimes{train/valid/test}_vitals_only_csv.gz (train/valid/test outcomes)
 
 
-### Artificially mask labels out to create versions of the data with 1.2%, 3.7%, 11.1%, 33.3% and 100% of the labels available
-Run all the cells in the "create_ssl_datasets.ipynb" notebooks to generate the train/valid/test splits with 1.2%, 3.7%, 11.1%, 33.3% and 100% of the labels.
+### Mask labels out to create versions of the data with 1.2%, 3.7%, 11.1%, 33.3% and 100% of the labels available
+Run all the cells in the "notebooks/create_ssl_dataset_for_mortality_prediction.ipynb" and "notebooks/create_ssl_dataset_for_mortality_prediction.ipynb" notebooks to generate the train/valid/test splits with 1.2%, 3.7%, 11.1%, 33.3% and 100% of the labels for the mortality prediction and LOS ordinal regression tasks respectively. 
 
-Note : The train valid test files will be saved in the "data/classifier_train_test_split_dir" folder
+Note : The train valid test files will be saved in the "data/MIMIC-IV/ordinal_los_prediction" and "data/MIMIC-IV/mortality_prediction" folders
 
 ### Train and Evaluate PC-HMM and other supervised and SSL baselines (GRU-D/BRITS/MixMatch/FixMatch)
-Run the training snakemake scripts to train the baselines and the PC-HMM models. Each model uses the corresponding {model}.json file for hyper parameters. The trained models are saved in the "results" folder.
+Run the training snakemake scripts to train the baselines and the PC-HMM models. Replace the {task} with either "mortality_prediction" or "los_prediction" depending on the prediction task. Each model uses the corresponding {model}.json file for hyper parameters. The trained models are saved in the "results" folder.
 
-    >> snakemake --cores 1 --snakefile train_semi_supervised_pchmm.smk train_and_evaluate_classifier_many_hyperparams
-    >> snakemake --cores 1 --snakefile train_semi_supervised_BRITS.smk train_and_evaluate_classifier_many_hyperparams
-    >> snakemake --cores 1 --snakefile train_gru_d_semi_supervised.smk train_and_evaluate_classifier_many_hyperparams
-    >> snakemake --cores 1 --snakefile train_semi_supervised_FixMatch.smk train_and_evaluate_classifier_many_hyperparams
-    >> snakemake --cores 1 --snakefile train_semi_supervised_MixMatch.smk train_and_evaluate_classifier_many_hyperparams
+    >> snakemake --cores 1 --snakefile {task}/train_semi_supervised_pchmm.smk train_and_evaluate_classifier_many_hyperparams
+    >> snakemake --cores 1 --snakefile {task}/train_semi_supervised_BRITS.smk train_and_evaluate_classifier_many_hyperparams
+    >> snakemake --cores 1 --snakefile {task}/train_gru_d_semi_supervised.smk train_and_evaluate_classifier_many_hyperparams
+    >> snakemake --cores 1 --snakefile {task}/train_semi_supervised_FixMatch.smk train_and_evaluate_classifier_many_hyperparams
+    >> snakemake --cores 1 --snakefile {task}/train_semi_supervised_MixMatch.smk train_and_evaluate_classifier_many_hyperparams
 
-Run the evaluation scripts to choose the model with the best AUPRC on validation set for each model at multiple %s of missing labels
 
-    >> snakemake --cores 1 --snakefile evaluate_semi_supervised_pchmm_performance.smk evaluate_performance
-    >> snakemake --cores 1 --snakefile evaluate_BRITS_performance.smk evaluate_performance
-    >> snakemake --cores 1 --snakefile evaluate_semi_supervised_grud_performance.smk evaluate_performance
-    >> snakemake --cores 1 --snakefile evaluate_FixMatch_performance.smk evaluate_performance
-    >> snakemake --cores 1 --snakefile evaluate_MixMatch_performance.smk evaluate_performance
+For training the ordinal regression models, run the following snakemake files
 
- The evaluation script generates .csv files in the "results/model" folder with the performance which can be plotted as shown : 
-![PCHMM_vs_baselines](https://github.com/tufts-ml/pchmm-missing-data-limited-labels/blob/main/MIMIC-IV/figures/perf_average_precision_semi_supervised_first_48_hours.png)
+    >> snakemake --cores 1 --snakefile los_prediction/train_semi_supervised_pchmm_for_los_ordinal_regression.smk train_and_evaluate_classifier_many_hyperparams
+    >> snakemake --cores 1 --snakefile los_prediction/train_gru_d_semi_supervised_for_los_ordinal_regression.smk train_and_evaluate_classifier_many_hyperparams
+
+Use the "notebooks/evaluate_performance_{task}" to evaluate the performance of each of the models
+
+
+The notebooks can be used to plot the performance of each model: 
+![PCHMM_vs_baselines](https://github.com/tufts-ml/pchmm-missing-data-limited-labels/blob/main/MIMIC-IV/figures/perf_mortality_prediction_mimic.pdf)
  
 

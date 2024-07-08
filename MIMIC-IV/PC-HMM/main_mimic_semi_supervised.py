@@ -14,7 +14,7 @@ PROJECT_REPO_DIR = os.path.abspath('../utils')
 sys.path.append(PROJECT_REPO_DIR)
 sys.path.append(os.path.join(PROJECT_REPO_DIR, 'pcvae'))
 
-from dataset_loader import TidySequentialDataCSVLoader
+# from dataset_loader import TidySequentialDataCSVLoader
 # from feature_transformation import (parse_id_cols, parse_feature_cols)
 # from utils import load_data_dict_json
 from joblib import dump
@@ -106,9 +106,7 @@ if __name__ == '__main__':
     X_val = np.load(x_valid_np_filename)
     y_val = np.load(y_valid_np_filename)
     
-    
-    from IPython import embed; embed()
-    
+        
     '''
     ts_feat_inds = [False, True, True, True, True, True, True, False, False, True, True, True, True]
     static_feat_inds = np.logical_not(ts_feat_inds)
@@ -125,7 +123,6 @@ if __name__ == '__main__':
     
     
     print('number of data points : %d\nnumber of time points : %s\nnumber of features : %s\n'%(N,T,F))
-    
     
     
     # mask labels in training set and validation set as per user provided %perc_labelled
@@ -197,6 +194,7 @@ if __name__ == '__main__':
     
     
     
+    predictor_time_reducer = 'concat'
     model = HMM(
             states=n_states,                                     
             lam=args.lamb,                                      
@@ -206,6 +204,7 @@ if __name__ == '__main__':
             observation_initializer=dict(loc=init_means, 
                 scale=init_covs),
             initial_state_alpha=1.,
+            predictor_time_reducer=predictor_time_reducer,
             initial_state_initializer=initial_state_logits,
             transition_alpha=1.,
             transition_initializer=transition_logits, 
@@ -220,15 +219,11 @@ if __name__ == '__main__':
     model.build(data) 
     
     
-    # set the regression coefficients of the model
-    eta_weights = np.zeros((n_states, 2))  
-        
     # set the initial etas as the weights from logistic regression classifier with average beliefs as features 
     x_train,y_train = data.train().numpy()
-    
+
     pos_inds = np.where(y_train[:,1]==1)[0]
     neg_inds = np.where(y_train[:,0]==1)[0]
-    
     x_pos = x_train[pos_inds]
     y_pos = y_train[pos_inds]
     x_neg = x_train[neg_inds]
@@ -238,9 +233,18 @@ if __name__ == '__main__':
     z_pos = model.hmm_model.predict(x_pos)
     z_neg = model.hmm_model.predict(x_neg)
     
-    # print the average belief states across time
-    beliefs_pos = z_pos.mean(axis=1)
-    beliefs_neg = z_neg.mean(axis=1)
+    
+    if predictor_time_reducer=='concat':
+        eta_weights = np.zeros((2*n_states, 2)) # 2*states because we are concatenating the beliefs at the first and last time steps
+        beliefs_pos = np.concatenate([z_pos[:, 0, :], z_pos[:, -1, :]], axis=-1)
+        beliefs_neg = np.concatenate([z_neg[:, 0, :], z_neg[:, -1, :]], axis=-1)
+    else:
+        # set the regression coefficients of the model
+        eta_weights = np.zeros((n_states, 2))
+
+        # print the average belief states across time
+        beliefs_pos = z_pos.mean(axis=1)
+        beliefs_neg = z_neg.mean(axis=1)
     
     
     # perform logistic regression with belief states as features for these positive and negative samples
@@ -267,7 +271,7 @@ if __name__ == '__main__':
     model._predictor.set_weights(init_etas)
     
     steps_per_epoch = np.ceil(N/args.batch_size)
-        
+    
     # temporarily using pre-trained weights
     '''
     best_model_weights = '/cluster/tufts/hugheslab/prath01/results/mimic3/semi_supervised_pchmm/v05112022/semi-supervised-pchmm-lr=0.05-seed=2577-init_strategy=uniform-batch_size=512-perc_labelled=100-predictor_l2_penalty=0-n_states=5-lamb=1000-weights.h5'
@@ -303,7 +307,7 @@ if __name__ == '__main__':
     '''
     model.fit(data, 
               steps_per_epoch=steps_per_epoch, 
-              epochs=500,#1000
+              epochs=500,#500
               reduce_lr=False, 
               batch_size=args.batch_size, 
               lr=args.lr,
@@ -398,8 +402,8 @@ if __name__ == '__main__':
                                    'valid_AUPRC' : valid_auprc, 
                                    'test_AUPRC' : test_auprc,
                                    'train_AUC' : train_roc_auc,
-                                   'valid AUC' : valid_roc_auc,
-                                   'test AUC' : test_roc_auc}])
+                                   'valid_AUC' : valid_roc_auc,
+                                   'test_AUC' : test_roc_auc}])
     
     
     model_perf_df.to_csv(perf_save_file, index=False)

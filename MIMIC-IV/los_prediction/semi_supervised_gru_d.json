@@ -1,0 +1,11 @@
+{
+    "lr": [0.001, 0.005],
+    "batch_size": [128, 512],
+    "dropout": [0, 0.1], 
+    "weight_decay": [0, 1e-7],
+    "perc_labelled" : [1.2, 3.7, 11.1, 33.3, 100],
+    "min_los" : [3],
+    "param_init_seed" : [1231, 542, 342, 11]
+}
+
+

@@ -107,13 +107,13 @@ class BaseVAE(object):
             self.model.load_weights(os.path.join(load_from, 'checkpoints', 'checkpoint'), by_name=True, skip_mismatch=True)
         
         
-        # Handle different learning rate schedules
+        # Handle different learning rate schedules        
         cblr = self.callbacks
         cblr.append(TqdmCallback(verbose=verbose))
         if reduce_lr:
             cblr.append(ReduceLROnPlateau(monitor='val_loss', factor=0.2, verbose=1,
-                                          patience=10, min_lr=0.0001))
-            cblr.append(EarlyStopping(patience=100))
+                                          patience=50, min_lr=0.001))
+            cblr.append(EarlyStopping(patience=50))
         elif expon_decay:
             def dfunc(epoch):
                 if epoch <= decay_warmup:
